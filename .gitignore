@@ -1,0 +1,20 @@
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+# Local show assets and application data
+/local/
+/data/
+/media/
+/logs/
+*.log
+# Common generated output; stack is not selected yet
+node_modules/
+dist/
+build/
+.venv/
+__pycache__/
+.DS_Store
+Thumbs.db

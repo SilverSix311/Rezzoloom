@@ -2,7 +2,7 @@
 
 Rezzoloom (**Rezzo** for short). Turn audience prompts into controlled changes to a live Resolume Arena composition.
 
-**Status: studio preview (0.2.0).** The local console discovers Arena sources/effects, builds operator-reviewed clips in empty slots, and archives prompts/recipes/results in a searchable local gallery. The local queue can schedule approved built clips with duration, pause/stop and restart recovery. Keyword suggestions are available; AI providers, external chat, community accounts, animated previews and bundled installers remain in development.
+**Status: studio preview (0.2.0).** The local console discovers Arena sources/effects, builds operator-reviewed clips in empty slots, and archives prompts/recipes/results in a searchable local gallery. The local queue can schedule approved built clips with duration, pause/stop and restart recovery. Configuration now supports public-client Twitch authorization and reviewed `!rezz` intake; live Twitch verification is pending. Keyword suggestions are available; AI providers, community accounts, animated previews and bundled installers remain in development.
 
 Rezzoloom will connect an AI model, an MCP control interface, a browser-based operator console, and chat adapters. Twitch is the first target; YouTube, Kick, and other bots should be able to use a shared API later.
 

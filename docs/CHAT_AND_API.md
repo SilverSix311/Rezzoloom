@@ -58,7 +58,7 @@ Require scoped credentials, size limits, replay protection, idempotency keys for
 
 ## Platform order
 
-Twitch first: evaluate EventSub chat-message events and reconnect/redelivery behavior against current official docs. Prefer a local-friendly transport if supported by the chosen authorization flow. YouTube and Kick get the same normalized contract, but their current event delivery, OAuth, verification, quotas, and app-review requirements must be researched before scheduling implementation. Do not promise equal platform capabilities.
+Twitch first: the local preview now implements Device Code Flow and EventSub WebSocket intake; see [setup and verified scope](TWITCH.md). Live provider validation and community identity linkage remain pending. YouTube and Kick get the same normalized contract, but their current event delivery, OAuth, verification, quotas, and app-review requirements must be researched before scheduling implementation. Do not promise equal platform capabilities.
 
 ## Confirmed playback scheduling
 

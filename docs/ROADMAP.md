@@ -10,7 +10,7 @@ Exit: documented compatibility, controllable targets and recovery limits. Remain
 
 ## 1 — Local operator prototype
 
-Connection setup, catalog discovery, operator-selected plans, validation/review, serialized clip construction and local recipe archive are implemented. Keyword matching is not semantic AI. Tested queue policy and command parsing now exist as internal modules, without persistent intake/playback wiring.
+Connection setup, catalog discovery, operator-selected plans, validation/review, serialized clip construction and local recipe archive are implemented. Keyword matching is not semantic AI. Persistent queue intake, recipe attachment and approved timed playback now accompany the tested command parser and scoring policy.
 
 Exit: the sample prompt creates a look from available built-ins; invalid/stale plans cause no writes; partial failures remain visible; the operator can pause and take over. Next work includes real provider decisions, color/motion plans and controlled playback.
 
@@ -18,7 +18,7 @@ Exit: the sample prompt creates a look from available built-ins; invalid/stale p
 
 Connect verified Twitch events to linked identities, bounded/deduplicated intake, persistent requests, configuration and review, score-based scheduling and optional bot replies. The original strict subscriber priority classes are superseded by [queue policy](QUEUE_POLICY.md).
 
-Exit: a real `!rezz` message progresses through review to a visible change; redelivery, spam, token revocation and reconnect do not cause surprise scene changes. Donation/subscription claims require verified provider evidence. No chat adapter is connected yet.
+Exit: a real `!rezz` message progresses through review to a visible change; redelivery, spam, token revocation and reconnect do not cause surprise scene changes. Donation/subscription claims require verified provider evidence. A local Twitch adapter and configuration UI are implemented and offline-tested; live Twitch validation and community account linkage remain open.
 
 ## 3 — Gallery, automatic operation and deployment
 

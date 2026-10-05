@@ -57,11 +57,11 @@ Muted green undertones connect the sidebar, canvas and panels. Lime identifies p
 
 ## Typography
 
-Self-hosted Manrope, weights 400, 600 and 800, carries the UI. The brand uses 800; headings use 600. Desktop page titles are 42px, reducing to 33px below 700px. Section titles are 17–20px; controls 12–13px; metadata 10–12px. Monospace is reserved for literal endpoint addresses. Font files come from Google Fonts; the OFL is included in `public/fonts/OFL.txt`.
+Self-hosted Manrope, weights 400, 600 and 800, carries the UI. The brand uses 800; headings use 600. Desktop page titles are 42px, reducing to 33px below 700px. Section titles are 17–20px; controls 12–13px; metadata 10–12px. Monospace is reserved for literal endpoint addresses and chat commands. Font files come from Google Fonts; the OFL is included in `public/fonts/OFL.txt`.
 
 ## Layout
 
-Five hash-routed views: Gallery, Prompt studio, Connections, Queue and Queue configuration. The desktop sidebar is 232px, reducing to 200px below 1100px. Below 700px navigation takes its own horizontally scrollable row beneath the brand. Content has a 1400px maximum width. Gallery recipes use divided rows rather than nested cards. The studio uses a flexible form with a 280px review column (350px on wide screens); below 1100px review follows the form. Controls stack below 700px. Queue uses a ranked list alongside intake/adjustment forms, with scoring settings on a separate page.
+Six hash-routed views: Gallery, Prompt studio, Connections, Queue, Queue configuration and Configuration. The desktop sidebar is 232px, reducing to 200px below 1100px. Below 700px navigation takes its own horizontally scrollable row beneath the brand. Content has a 1400px maximum width. Gallery recipes use divided rows rather than nested cards. The studio uses a flexible form with a 280px review column (350px on wide screens); below 1100px review follows the form. Controls stack below 700px. Queue uses a ranked list alongside intake/adjustment forms, with scoring settings on a separate page. Configuration pairs Twitch settings with authorization/listener status in two columns, stacking below 900px.
 
 ## Elevation & Depth
 

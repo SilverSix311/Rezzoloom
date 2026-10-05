@@ -18,7 +18,7 @@ document.querySelector('#add-form').onsubmit = async event => {
   finally { button.disabled = false; }
 };
 function action(label, run, cls) { const button = el('button', label, cls); button.onclick = async () => { button.disabled = true; notice.textContent = ''; try { await run(); } catch (error) { notice.textContent = error.message; } finally { button.disabled = false; } }; return button; }
-async function refresh() { instances = await api('/api/instances'); render(); syncQueueTargets(); }
+async function refresh() { instances = await api('/api/instances'); render(); syncQueueTargets(); syncTwitchTargets(); }
 function render() {
   cards.replaceChildren(); document.querySelector('#total').textContent = instances.length;
   document.querySelector('#online').textContent = instances.filter(x => x.status.state === 'connected').length;
@@ -54,7 +54,7 @@ function render() {
   }
 }
 async function boot() {
-  try { const session = await fetch('/api/session').then(r => { if (!r.ok) throw new Error('Cannot open local session.'); return r.json(); }); token = session.token; await refresh(); await refreshGallery(); }
+  try { const session = await fetch('/api/session').then(r => { if (!r.ok) throw new Error('Cannot open local session.'); return r.json(); }); token = session.token; await refresh(); await refreshGallery(); await loadTwitch(true); }
   catch (error) { notice.textContent = `${error.message} Reload to retry.`; }
 }
 
@@ -183,13 +183,13 @@ for (const button of document.querySelectorAll('[data-status]')) button.onclick 
 document.querySelector('#gallery-filter').oninput = renderGallery;
 document.querySelector('#gallery-sort').onchange = renderGallery;
 function showView(focus = false) {
-  const view = ['gallery', 'studio', 'connections', 'queue', 'queue-config'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'gallery';
+  const view = ['gallery', 'studio', 'connections', 'queue', 'queue-config', 'configuration'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'gallery';
   for (const section of document.querySelectorAll('.view')) section.hidden = section.id !== view;
   for (const link of document.querySelectorAll('[data-view]')) {
     const active = link.dataset.view === view; link.classList.toggle('active', active);
     if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   }
-  const title = { gallery: 'Gallery', studio: 'Prompt studio', connections: 'Connections', queue: 'Queue', 'queue-config': 'Queue configuration' }[view];
+  const title = { gallery: 'Gallery', studio: 'Prompt studio', connections: 'Connections', queue: 'Queue', 'queue-config': 'Queue configuration', configuration:'Configuration' }[view];
   document.querySelector('#view-name').textContent = title; document.title = `Rezzo · ${title}`;
   if (focus) { const heading = document.querySelector(`#${view}-heading`); heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
 }
@@ -240,7 +240,7 @@ function renderQueue() {
   if (!pending.length) items.append(el('div', 'No pending requests. Add a prompt for operator review.', 'empty'));
   for (const request of pending) {
     const row = el('article', undefined, 'queue-row');
-    row.append(el('span', request.approved ? `#${ranks.get(request.id)} · Approved` : 'Awaiting review', 'meta'), el('h3', request.prompt), el('p', `Local operator · ${request.priority} · ${new Date(request.createdAt).toLocaleString()}`, 'meta'));
+    row.append(el('span', request.approved ? `#${ranks.get(request.id)} · Approved` : 'Awaiting review', 'meta'), el('h3', request.prompt), el('p', `${request.source?.provider === 'twitch' ? `Twitch · ${request.displayName}` : 'Local operator'} · ${request.priority} · ${new Date(request.createdAt).toLocaleString()}`, 'meta'));
     const score = request.ranking; const c = score.components;
     row.append(el('strong', `${Number(score.score.toFixed(6))} points`, 'queue-score'), el('p', `Base ${c.base} + aging ${Number(c.aging.toFixed(6))} + adjustments ${c.adjustments} − bulk ${c.bulkPenalty}${request.admin ? ' · Admin fixed at 1000' : ''}`, 'meta'));
     const actions = el('div', undefined, 'actions');
@@ -327,7 +327,45 @@ for (const operation of ['resume','pause','stop','reconcile']) document.querySel
   finally { queueBusy = false; queueTarget.disabled = false; await loadQueue(false).catch(error => { notice.textContent = error.message; }); }
 };
 setInterval(() => {
-  if (document.hidden || document.querySelector('#queue').hidden || queueBusy || !queueSnapshot || (queueSnapshot.playback.paused && !queueSnapshot.playback.active) || document.activeElement.closest('form, #queue-items, select')) return;
+  if (document.hidden || document.querySelector('#queue').hidden || queueBusy || !queueSnapshot || document.activeElement.closest('form, #queue-items, select')) return;
   loadQueue(false, true).catch(error => { notice.textContent = error.message; });
 }, 2000);
+const twitchForm = document.querySelector('#twitch-form');
+let twitchStatus = null, twitchBusy = false;
+function syncTwitchTargets() {
+  const field = document.querySelector('#twitch-target'); const selected = field.value;
+  field.replaceChildren(option('', 'Choose a connection'), ...instances.map(x => option(x.id,x.name))); field.value = selected;
+}
+function renderTwitch(value, fill = false) {
+  twitchStatus = value;
+  if (fill && value.config) for (const [key,val] of Object.entries(value.config)) twitchForm.elements[key].value = val;
+  document.querySelector('#twitch-state').textContent = value.message;
+  document.querySelector('#twitch-identity').textContent = value.identity ? `Authorized as ${value.identity.login} · Twitch ID ${value.identity.id}` : 'No Twitch account authorized.';
+  document.querySelector('#twitch-saved').textContent = value.config ? `Saved route: ${value.config.channel} → ${instances.find(x => x.id === value.config.instanceId)?.name ?? 'Missing Arena target'}` : '';
+  document.querySelector('#twitch-consent').hidden = !value.authorization;
+  document.querySelector('#twitch-code').textContent = value.authorization?.userCode ?? '';
+  const link = document.querySelector('#twitch-activate');
+  if (value.authorization) link.href = value.authorization.verificationUrl; else link.removeAttribute('href');
+  document.querySelector('#twitch-authorize').disabled = twitchBusy || !value.config || value.state === 'authorizing';
+  document.querySelector('#twitch-start').disabled = twitchBusy || value.state !== 'authorized';
+  document.querySelector('#twitch-stop').disabled = twitchBusy || !['listening','connecting'].includes(value.state);
+  document.querySelector('#twitch-disconnect').disabled = twitchBusy || (!value.identity && !value.authorization);
+}
+async function loadTwitch(fill = false) { renderTwitch(await api('/api/twitch'),fill); }
+async function twitchCommand(operation, config) {
+  if (twitchBusy) return;
+  twitchBusy = true; if (twitchStatus) renderTwitch(twitchStatus);
+  for (const field of twitchForm.elements) field.disabled = true;
+  document.querySelector('#twitch-error').textContent = '';
+  try { renderTwitch(await api('/api/twitch','POST',{operation,...(config ? {config} : {})}), operation === 'configure'); }
+  catch (error) { document.querySelector('#twitch-error').textContent = error.message; await loadTwitch().catch(() => {}); }
+  finally { twitchBusy = false; for (const field of twitchForm.elements) field.disabled = false; if (twitchStatus) renderTwitch(twitchStatus); }
+}
+twitchForm.onsubmit = event => { event.preventDefault(); twitchCommand('configure',Object.fromEntries(new FormData(twitchForm))); };
+for (const op of ['authorize','start','stop','disconnect']) document.querySelector(`#twitch-${op}`).onclick = () => twitchCommand(op);
+setInterval(() => {
+  if (!token || document.hidden || document.querySelector('#configuration').hidden || twitchBusy) return;
+  if (twitchStatus?.state === 'authorizing') twitchCommand('poll');
+  else loadTwitch().catch(error => { document.querySelector('#twitch-error').textContent = error.message; });
+},5000);
 showView(); boot();

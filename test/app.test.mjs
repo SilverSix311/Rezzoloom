@@ -125,3 +125,18 @@ test('queue HTTP intake binds local identity, rejects forged privileges and isol
   assert.equal((await request(`/api/instances/${a.id}/playback`,'POST',{operation:'resume'})).status,400);
   assert.equal((await request(route,'POST',{eventId:'play',operation:'play',requestId:result.requestId})).status,400);
 });
+
+test('Twitch configuration API requires local auth, rejects secrets and has no chat-injection route', async t => {
+  const {request,base,dir} = await fixture(t);
+  assert.equal((await fetch(`${base}/api/twitch`)).status,401);
+  const instance = await request('/api/instances','POST',{name:'Chat target',endpoint:'http://localhost:9001'}).then(r=>r.json());
+  const config = {clientId:'publicclient123',channel:'artist',instanceId:instance.id};
+  assert.equal((await request('/api/twitch','POST',{operation:'configure',config:{...config,clientSecret:'do-not-store'}})).status,400);
+  assert.equal((await request('/api/twitch','POST',{operation:'configure',config},{Origin:'https://elsewhere.example'})).status,403);
+  assert.equal((await request('/api/twitch','POST',{operation:'configure',config})).status,200);
+  assert.equal((await request('/api/twitch','POST',{operation:'start'})).status,400);
+  assert.equal((await request('/api/twitch','POST',{operation:'ingest',text:'!rezz fake'})).status,400);
+  const status = await request('/api/twitch').then(r=>r.json()); assert.deepEqual(status.config,config); assert.equal(status.identity,null);
+  const persisted = await import('node:fs/promises').then(fs=>fs.readFile(join(dir,'twitch.json'),'utf8'));
+  assert.doesNotMatch(persisted,/secret|token/i);
+});

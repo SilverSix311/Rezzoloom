@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { openTwitch } from './twitch.mjs';
 import { openPlayback } from './playback.mjs';
 import { openQueue, LOCAL_OPERATOR } from './queue-store.mjs';
 import { openStore } from './store.mjs';
@@ -20,10 +21,11 @@ async function body(req) {
   for await (const chunk of req) { size += chunk.length; if (size > 16_384) throw new AppError('Request too large.', 413); parts.push(chunk); }
   try { return JSON.parse(Buffer.concat(parts).toString('utf8')); } catch { throw new AppError('Invalid JSON.'); }
 }
-export async function createApp({ dataDir, probe = inspectArena, studioOptions, playbackOptions } = {}) {
+export async function createApp({ dataDir, probe = inspectArena, studioOptions, playbackOptions, twitchOptions } = {}) {
   const store = await openStore(dataDir);
   const studio = await openStudio(dataDir, studioOptions);
   const queue = await openQueue(dataDir, { resolveRecipe: id => studio.get(id) });
+  const twitch = await openTwitch(dataDir, {queue,store,...twitchOptions});
   const token = randomBytes(32).toString('hex');
   const statuses = new Map(); const busy = new Set();
   const playback = await openPlayback({ queue, store, studio, busy, ...playbackOptions });
@@ -48,6 +50,12 @@ export async function createApp({ dataDir, probe = inspectArena, studioOptions, 
       }
       if (req.method === 'GET' && path === '/api/session') return send(200, { token, mode: 'local', version: '0.2.0' });
       if (req.headers.authorization !== `Bearer ${token}`) throw new AppError('Local session required. Reload the console.', 401);
+      if (req.method === 'GET' && path === '/api/twitch') return send(200, twitch.status());
+      if (req.method === 'POST' && path === '/api/twitch') {
+        const input = await body(req);
+        if (!input || Object.keys(input).some(k => !['operation','config'].includes(k))) throw new AppError('Unexpected Twitch fields.');
+        return send(200, await twitch.command(input.operation,input.config));
+      }
       if (req.method === 'GET' && path === '/api/instances') return send(200, store.list().map(item => ({ ...item, status: statuses.get(item.id) ?? { state: 'unchecked' } })));
       if (req.method === 'POST' && path === '/api/instances') return send(201, await store.add(await body(req)));
       if (req.method === 'GET' && path === '/api/gallery') return send(200, studio.list());
@@ -87,7 +95,7 @@ export async function createApp({ dataDir, probe = inspectArena, studioOptions, 
       if (match) {
         const [, id, action] = match;
         const item = store.get(id);
-        if (!action && req.method === 'DELETE') { if (queue.snapshot(id).requests.some(x => ['pending', 'playing'].includes(x.status))) throw new AppError('Remove pending requests and reconcile playback before removing this connection.', 409); if (busy.has(id)) throw new AppError('Wait for this connection check to finish.', 409); await store.remove(id); statuses.delete(id); return send(200, { removed: true }); }
+        if (!action && req.method === 'DELETE') { if (twitch.usesTarget(id)) throw new AppError('Stop Twitch listening before removing its target.',409); if (queue.snapshot(id).requests.some(x => ['pending', 'playing'].includes(x.status))) throw new AppError('Remove pending requests and reconcile playback before removing this connection.', 409); if (busy.has(id)) throw new AppError('Wait for this connection check to finish.', 409); await store.remove(id); statuses.delete(id); return send(200, { removed: true }); }
         if (req.method === 'POST' && ['inspect', 'snapshot'].includes(action)) {
           if (busy.has(id) || busy.size >= 4) throw new AppError('A connection check is already running. Try again shortly.', 409);
           busy.add(id);
@@ -106,6 +114,6 @@ export async function createApp({ dataDir, probe = inspectArena, studioOptions, 
       throw new AppError('Route not found.', 404);
     } catch (error) { if (!res.headersSent) send(error.status ?? 500, { error: error.status ? error.message : 'Local service error. Check the data directory is writable.' }); else res.end(); }
   });
-  server.on('close', () => playback.close());
+  server.on('close', () => { playback.close(); twitch.close(); });
   return server;
 }

@@ -27,8 +27,10 @@ Active implementation checklist. Keep completed items backed by code/tests; upda
 
 ## Chat, queue and events
 
-- [ ] Implement Twitch authorization and verified chat ingestion, linking chat identity to Rezzo identity.
-- [ ] Add event deduplication, intake limits, reconnect/revocation handling and scoped external-bot API.
+- [x] Add local Twitch public-client authorization, Configuration UI and verified-sender chat intake into the review queue (offline-tested).
+- [ ] Verify live Twitch authorization/chat with a configured public application; link Twitch identities to community Rezzo accounts.
+- [x] Persist Twitch message deduplication and intake limits; handle server reconnect handoff and revocation.
+- [ ] Add automatic recovery after unexpected disconnects, secure token persistence/refresh, configurable intake limits and scoped external-bot API.
 - [ ] Apply extensible positive/negative triggers to the user's next request; prevent redelivery from targeting a later request.
 - [ ] Verify Patreon/Twitch tiers and snapshot their configured starting score at submission.
 - [ ] Verify direct-donation provider events, currency rules, attribution and refund handling; implement configurable boost/protection.
@@ -75,4 +77,6 @@ Details: [portability](docs/PORTABILITY.md), [open decisions](docs/DECISIONS.md)
 
 UI refinement now provides distinct hash-routed views, local gallery status/search filters, a side-by-side desktop recipe review, responsive mobile navigation, self-hosted Manrope and reduced-motion support. Backend authorization and review controls remain intact. Impeccable was installed as a user skill; no paid Figma workflow or continuous design service was added. DESIGN.md records the system. Browser verification and final validation are recorded in the development guide.
 
-Persistent local operator queue and event receipts now accompany the parser/scoring core. Queue and Configuration pages support approval/removal, manual next-request adjustments, tier starting values and aging/bulk settings. Built-clip attachment, playback approval, timed advancement and pause/stop/reconciliation are now implemented. External verified identity/payment intake remains next. Laya/Jev contracts and grounded parameter planning remain outstanding. The queue can now play operator-built clips; no complete AI, live chat intake, full-composition generation, capture or community-login claims.
+Persistent local operator queue and event receipts now accompany the parser/scoring core. Queue and Configuration pages support approval/removal, manual next-request adjustments, tier starting values and aging/bulk settings. Built-clip attachment, playback approval, timed advancement and pause/stop/reconciliation are now implemented. Twitch local sender identity intake is implemented; live provider verification and community identity/payment linkage remain next. Laya/Jev contracts and grounded parameter planning remain outstanding. The queue can now play operator-built clips; no complete AI, live Twitch validation, full-composition generation, capture or community-login claims.
+
+Twitch checkpoint (2026-10-05): Configuration saves public app ID/channel/Arena target. Device authorization is memory-only and chat-read-only. Requests are held for recipe attachment/approval; badges never grant priority or protection. Forty automated tests pass; desktop/mobile configuration and required-field states checked. Live consent/chat remains untested until the operator configures their app. See [Twitch setup](docs/TWITCH.md).

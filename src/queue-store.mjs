@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile, rename, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { AppError, normalizeEndpoint } from './arena.mjs';
+import { parseRezzCommand } from './chat.mjs';
 import { DEFAULT_QUEUE_CONFIG, rankRequests, applyAdjustment } from './queue.mjs';
 
 export const LOCAL_OPERATOR = Object.freeze({ id: 'local:operator', role: 'operator' });
@@ -24,7 +25,7 @@ function config(value) {
 function operator(actor) { if (actor?.id !== LOCAL_OPERATOR.id || actor?.role !== 'operator') fail('Verified local operator required.', 403); }
 
 /** One process owns this file. Requests and their idempotency receipts commit together.
- * External adapters are deliberately not exposed until their identity verification exists.
+ * Twitch intake is internal to the authenticated provider adapter; HTTP commands remain operator-only.
  */
 export async function openQueue(directory, { now = Date.now, resolveRecipe } = {}) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
@@ -37,13 +38,13 @@ export async function openQueue(directory, { now = Date.now, resolveRecipe } = {
     const ids = new Set();
     for (const r of data.requests) {
       text(r.id, 'id', 100); text(r.instanceId, 'target', 100); text(r.prompt, 'prompt');
-      if (ids.has(r.id) || r.userId !== LOCAL_OPERATOR.id || r.protected !== false) throw Error(); ids.add(r.id);
+      if (ids.has(r.id) || !(r.userId === LOCAL_OPERATOR.id || /^twitch:[0-9]+$/.test(r.userId)) || r.protected !== false) throw Error(); ids.add(r.id);
     }
     for (const id of new Set(data.requests.map(r => r.instanceId))) rankRequests(data.requests, { instanceId: id, now: now() });
     const keys = new Set();
     for (const event of data.events) {
       text(event.key, 'event key', 200); text(event.fingerprint, 'fingerprint', 10000);
-      if (keys.has(event.key) || !event.result || event.actorId !== LOCAL_OPERATOR.id) throw Error(); keys.add(event.key);
+      if (keys.has(event.key) || !event.result || !(event.actorId === LOCAL_OPERATOR.id || /^twitch:[0-9]+$/.test(event.actorId))) throw Error(); keys.add(event.key);
     }
     for (const setting of Object.values(data.configs)) config(setting);
   } catch (error) { throw new Error(`Invalid queue store; preserve and repair ${filename}.`, { cause: error }); }
@@ -64,10 +65,11 @@ export async function openQueue(directory, { now = Date.now, resolveRecipe } = {
   }
   let pending = Promise.resolve();
   function mutate(instanceId, input, actor, reduce) {
-    operator(actor); text(instanceId, 'Target', 100); text(input.eventId, 'Event ID', 100);
+    if (!(actor?.id === LOCAL_OPERATOR.id && actor.role === 'operator') && !(actor?.role === 'viewer' && /^twitch:[0-9]+$/.test(actor.id))) fail('Verified identity required.', 403);
+    text(instanceId, 'Target', 100); text(input.eventId, 'Event ID', 120);
     const key = `${actor.id}:${input.eventId}`;
     // Canonical key order makes retries independent of JSON property order.
-    const fingerprint = JSON.stringify([instanceId, Object.entries(input).filter(([k]) => k !== 'eventId').sort(([a], [b]) => a.localeCompare(b))]);
+    const fingerprint = JSON.stringify([input.operation === 'twitch' ? 'twitch-message' : instanceId, Object.entries(input).filter(([k]) => k !== 'eventId').sort(([a], [b]) => a.localeCompare(b))]);
     const job = pending.then(async () => {
       const prior = data.events.find(x => x.key === key);
       if (prior) { if (prior.fingerprint !== fingerprint) fail('Event ID was already used for a different operation.', 409); return structuredClone(prior.result); }
@@ -100,7 +102,27 @@ export async function openQueue(directory, { now = Date.now, resolveRecipe } = {
       const scores = rankRequests(requests.map(x => ({ ...x, approved: true })), { instanceId, now: sampledAt, config: settings });
       return structuredClone({ revision: data.revision, sampledAt, config: settings, playback: data.playback[instanceId] ?? { paused: true, active: null }, ranked, requests: requests.map(x => ({ ...x, ranking: scores.find(s => s.id === x.id) ?? null })), events: data.events.filter(x => x.instanceId === instanceId).slice(-50) });
     },
+    // Internal adapter entry point only. There is deliberately no HTTP event-injection route.
+    ingestTwitch(instanceId, event) {
+      object(event, ['channelId', 'messageId', 'userId', 'login', 'text']);
+      if (typeof event.channelId !== 'string' || typeof event.userId !== 'string' || typeof event.messageId !== 'string' || typeof event.login !== 'string' || typeof event.text !== 'string' || !/^[0-9]{1,30}$/.test(event.channelId) || !/^[0-9]{1,30}$/.test(event.userId) || !/^[a-zA-Z0-9_-]{1,80}$/.test(event.messageId) || !/^[a-z0-9_]{1,25}$/.test(event.login)) fail('Invalid Twitch event identity.');
+      const parsed = parseRezzCommand(event.text);
+      if (parsed.disposition !== 'accepted') return Promise.resolve({ outcome: parsed.disposition, reason: parsed.reason });
+      const actor = { id: `twitch:${event.userId}`, role: 'viewer' };
+      const input = { operation: 'twitch', eventId: `${event.channelId}:${event.messageId}`, prompt: parsed.prompt, channelId: event.channelId, login: event.login };
+      return mutate(instanceId, input, actor, (draft, timestamp) => {
+        const pending = draft.requests.filter(x => ['pending','playing'].includes(x.status));
+        if (pending.filter(x => x.userId === actor.id && x.instanceId === instanceId).length >= 5) return { outcome: 'user_queue_limit' };
+        if (pending.filter(x => x.instanceId === instanceId).length >= 500) return { outcome: 'queue_limit' };
+        const prior = draft.requests.filter(x => x.source?.channelId === event.channelId);
+        if (prior.some(x => x.userId === actor.id && timestamp - x.createdAt < 10000)) return { outcome: 'cooldown' };
+        if (prior.filter(x => timestamp - x.createdAt < 60000).length >= 60) return { outcome: 'channel_rate_limit' };
+        const request = { id: randomUUID(), instanceId, userId: actor.id, displayName: event.login, source: { provider:'twitch', channelId:event.channelId, messageId:event.messageId }, prompt:parsed.prompt, priority:'standard', baseScore:0, admin:false, protected:false, approved:false, status:'pending', createdAt:timestamp, sequence:draft.revision+1, adjustments:[] };
+        draft.requests.push(request); return { requestId:request.id, outcome:'queued', instanceId };
+      });
+    },
     command(instanceId, input, actor) {
+      operator(actor);
       object(input, ['eventId', 'operation', 'prompt', 'priority', 'requestId', 'delta', 'config', 'revision', 'recipeId', 'durationSeconds']);
       const allowed = { enqueue: ['prompt', 'priority'], attach: ['requestId', 'recipeId', 'durationSeconds'], approve: ['requestId'], remove: ['requestId'], adjustNext: ['delta'], configure: ['config', 'revision'] };
       const fields = Object.hasOwn(allowed, input.operation) ? allowed[input.operation] : null; if (!fields) fail('Unsupported queue operation.');

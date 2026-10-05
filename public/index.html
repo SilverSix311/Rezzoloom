@@ -11,6 +11,7 @@
     <a href="#studio" data-view="studio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 3v8M16 13v8"/></svg>Prompt studio</a>
     <a href="#connections" data-view="connections"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 21h8M12 16v5"/></svg>Connections<span id="total" class="nav-count">0</span></a>
     <a href="#queue" data-view="queue">Queue</a>
+    <a href="#configuration" data-view="configuration">Configuration</a>
     <a href="#queue-config" data-view="queue-config">Queue configuration</a>
   </nav>
   <div class="sidebar-note"><span class="review-dot"></span>Operator review<p>You decide what gets built.</p></div>
@@ -58,6 +59,25 @@
     <div><form id="queue-add" class="queue-panel"><h2>Add a request</h2><p class="meta">Submitted as Local operator. Priority classes are manual operator assignments, not verified subscriptions.</p><label>Prompt<textarea name="prompt" rows="4" maxlength="2000" required></textarea></label><label>Priority class<select name="priority"><option value="standard">Standard</option><option value="tier1">Tier 1</option><option value="tier2">Tier 2</option><option value="tier3">Tier 3</option><option value="admin">Admin · 1000</option></select></label><button type="submit" class="primary">Add for review</button></form>
     <form id="queue-adjust" class="queue-panel"><h2>Adjust next request</h2><p class="meta">Applies to your earliest pending request on this target. This is a manual adjustment, not a payment event.</p><label>Points to add or subtract<input name="delta" type="number" min="-1000000" max="1000000" step="0.000001" value="1" required></label><button type="submit">Apply adjustment</button></form></div></div>
     <details class="limitations"><summary>Recent queue events</summary><ol id="queue-events"></ol></details>
+  </section>
+  <section id="configuration" class="view" aria-labelledby="configuration-heading" hidden>
+    <div class="page-heading"><div><h1 id="configuration-heading">Configuration<span class="title-dot">.</span></h1><p>Bring your audience into the creative process.</p></div><a href="#queue">Open queue ↗</a></div>
+    <div class="twitch-layout">
+      <form id="twitch-form" class="queue-panel"><h2>Twitch chat</h2><p class="meta">Connect one channel to an Arena target. Save your settings, authorize on Twitch, then start listening.</p>
+        <label>Public Client ID<input name="clientId" required pattern="[a-zA-Z0-9]{10,100}" maxlength="100" autocomplete="off" spellcheck="false"></label>
+        <p class="meta">Create a Public application in the <a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noopener noreferrer">Twitch Developer Console</a>. No client secret is needed.</p>
+        <label>Channel login<input name="channel" required pattern="[a-z0-9_]{1,25}" maxlength="25" placeholder="your_channel" autocomplete="off" spellcheck="false"></label>
+        <label>Arena target<select name="instanceId" id="twitch-target" required><option value="">Choose a connection</option></select></label>
+        <p class="meta">Saving settings disconnects the listener. Add targets in <a href="#connections">Connections</a>.</p>
+        <button class="primary" type="submit">Save Twitch settings</button><p id="twitch-error" role="alert" class="error"></p>
+      </form>
+      <div class="queue-panel"><h2>Chat connection</h2><p id="twitch-state" role="status">Loading Twitch settings…</p><p id="twitch-identity" class="meta"></p><p id="twitch-saved" class="meta"></p>
+        <div id="twitch-consent" hidden><p>Enter this code on Twitch: <strong id="twitch-code"></strong></p><a id="twitch-activate" target="_blank" rel="noopener noreferrer">Authorize on Twitch ↗</a><p class="meta">This page checks authorization automatically while open.</p></div>
+        <div class="actions"><button id="twitch-authorize" disabled>Authorize Twitch</button><button id="twitch-start" disabled class="primary">Start listening</button><button id="twitch-stop" disabled>Stop listening</button><button id="twitch-disconnect" disabled class="quiet">Disconnect account</button></div>
+        <p class="section-help">Chat-read access only. Authorization stays in memory; authorize again after restarting Rezzo. Disconnect forgets local tokens; manage account grants in Twitch settings.</p>
+        <h3>Prompts arrive for review</h3><p class="meta">Viewers send <code>!rezz "Purple neon grids"</code>. Each request keeps its Twitch sender. Build and attach a recipe, then approve it in the queue.</p><p class="meta">This preview allows five pending requests per viewer and target, with a ten-second submission cooldown. Subscription tiers and community account linking come later.</p>
+      </div>
+    </div>
   </section>
   <section id="queue-config" class="view" aria-labelledby="queue-config-heading" hidden>
     <div class="page-heading"><div><h1 id="queue-config-heading">Queue configuration<span class="title-dot">.</span></h1><p>Set the rules for this Arena target.</p></div><a href="#queue">Back to queue ↗</a></div>

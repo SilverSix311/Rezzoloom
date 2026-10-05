@@ -1,32 +1,58 @@
 # Development and current implementation
 
-## Run the foundation preview
+## Run the studio preview (0.2.0)
 
-Install Node.js 24 or newer, then run `npm start` in the checkout (no third-party dependencies are required). Open http://127.0.0.1:4310. Windows can use `start.cmd`; macOS/Linux can use `./start.sh`. These are source launchers, not bundled standalone installers.
+Use Node.js 24 or newer. Run `npm ci`, then `npm start`, and open http://127.0.0.1:4310. Windows can use `start.cmd`; macOS/Linux can use `./start.sh`. These are source launchers, not bundled installers. The HTTP service itself still uses Node built-ins; the official MCP diagnostic uses the pinned `@modelcontextprotocol/sdk` 1.32.0 dependency.
 
-Set `REZZO_DATA_DIR` to change the persistent data directory (default: `.rezzoloom` inside your home folder). Set `REZZO_PORT` to change the HTTP port (default 4310). Use only one Rezzo process per data directory. Stop with Ctrl+C. Saved connections survive restart; health resets to unchecked until explicitly refreshed.
+Set `REZZO_DATA_DIR` to change persistent storage (default: `.rezzoloom` in your home folder), and `REZZO_PORT` to change port 4310. Run one process per data directory. Stop with Ctrl+C. Saved connections and gallery recipes survive restart. Arena health is checked on demand.
 
-The current service binds only to loopback. It is a trusted local operator console, not the community account system: other local processes/users able to reach the port are within its trust boundary. Host/origin/Fetch Metadata checks, a same-origin session token, CSP, and escaped DOM text protect the browser boundary. Do not publish this preview via a reverse proxy. Outbound targets are operator-selected HTTP(S) origins; use only authorized endpoints. Remote TLS is validated, redirects and embedded credentials are rejected. Secure remote connector pairing is not implemented.
+The service binds only to loopback. It is a trusted local operator console, not the community account system: other local processes/users able to reach this port are inside its trust boundary. Host/origin/Fetch Metadata checks, a same-origin session token, CSP, and escaped DOM text protect the browser boundary. Do not expose this preview through a reverse proxy. Targets are operator-selected HTTP(S) origins; TLS is validated, redirects and embedded credentials rejected. Remote connector pairing remains unimplemented.
 
-## What works
+## Working flow
 
-- Browser connection manager, add/remove named targets, atomic persistent JSON storage.
-- Separate on-demand health and composition summaries for each target; failure isolation.
-- Read-only GET requests to Arena `/api/v1/product` and `/api/v1/composition`.
-- Version, composition name, layer/clip-slot and column counts.
-- Diagnostic `.state.json` export with explicit `replayable: false`; this is not a native Arena composition download.
-- Response size/time limits, bounded probe concurrency, input validation and request size limits.
+1. Save an Arena connection with its Webserver & REST API enabled.
+2. Open **Prompt studio** on that connection. Rezzo reads product/composition, video sources and effects from that target. Capture devices are excluded from the source selector.
+3. Enter a prompt. **Find catalog matches** uses literal keyword ranking over live names/descriptions. It is not Laya/Jev or semantic AI and does not set colors or animation parameters.
+4. Choose a source, an empty clip slot and effects. Light permits one effect; Full permits four. Both currently create one clip with Arena defaults. These counts are preliminary limits, not the complete planned Light/Full policies or a photosensitivity guarantee.
+5. Preview the recipe, then explicitly approve its build. The server binds the plan to its target, composition structure/deck and empty clip ID. Plans expire after ten minutes. It rechecks live state before writing and serializes requests per instance.
+6. The build loads the source and adds effects via verified REST operations. Readback checks source description and effect names. The clip remains stopped; trigger it in Arena yourself. No playback, global mix or existing content is deliberately changed.
+7. Local gallery archives planned, applied and failed/uncertain attempts. Search prompt/source/effect/status, sort by date, reuse a recipe through a fresh review, or download its `.rezzo.json` record.
 
-No AI planning, MCP client, Arena writes, scheduler, chat bot, SSO, gallery, replay, thumbnails, training export, or installer binaries yet. Their planning documents describe intended behavior, not existing features. Node and browser standards were chosen for a dependency-free first slice; TypeScript/React remain an option rather than installed dependencies. No package versions were previously locked; package-lock.json now records the dependency-free package.
+Writes are not transactional. Arena has no compare-and-swap in this adapter, so avoid editing the target slot while a recipe executes. A timeout or mismatched readback is archived as `uncertain`; never automatically retry. A restart changes persisted `executing` entries to `interrupted`. Inspect Arena and create a fresh plan if needed. Completed operations are not automatically rolled back.
 
-## Checks
+Gallery files are private local JSON records in `gallery/`. They retain prompt, actual selected catalog entries, target, mode, timestamps, command acknowledgements and before/after state. Downloads use `Operator.<short-id>.rezzo.json`. They are not native Arena compositions, portable replay files, or a finished training dataset. State can include local asset paths; review records before sharing them. Import, automated capture of changes made outside Rezzo, animated previews, ratings, tag edits, community accounts and consent provenance are pending. JSON storage is an early local implementation, without quotas or large-community pagination yet.
 
-Run `npm test` and `npm run check`. Tests use disposable data folders and mock Arena endpoints. They cover persisted profiles, duplicate validation, concurrent writes, corrupt-store preservation, per-target dispatch/failure isolation, authentication/browser boundary, size/time limits, redirects, and unsupported payloads. They never write to Arena.
+## HTTP surface
 
-Observed 2026-10-04 on Linux with Node 26.8.1: Arena.exe running under Wine; local REST reports Arena 7.28.0 revision 24303, three layers and nine columns. Browser verified adding/inspecting a real target and an unavailable target without disrupting the real one. The snapshot API was also verified against real Arena. Browser export reached its success UI, but the browser automation download event timed out, so filesystem delivery through that browser is not verified. No composition mutations were sent. macOS, Windows and Node 24 execution remain untested locally.
+All endpoints except `/api/session` require the local bearer session and browser-origin checks.
 
-## References and next slice
+| Method / path | Behavior |
+| --- | --- |
+| GET/POST `/api/instances` | List/add saved target |
+| DELETE `/api/instances/:id` | Remove saved target |
+| POST `/api/instances/:id/inspect` or `/snapshot` | Read summary or diagnostic state |
+| POST `/api/instances/:id/catalog` | Read current sources/effects/empty slots |
+| POST `/api/instances/:id/suggest` | Keyword matches for `{prompt}` |
+| POST `/api/instances/:id/plan` | Persist `{prompt,mode,sourceId,clipId,effectIds}` as reviewed candidate |
+| POST `/api/instances/:id/execute` | Execute `{planId,approved:true}` once after revalidation |
+| GET `/api/gallery` or `/api/gallery/:id` | List recipe metadata or read full record |
 
-Protocol reference: [Resolume REST OpenAPI](https://resolume.com/docs/restapi/swagger.yaml). Node built-in HTTP/fetch APIs checked against [Node 24 docs](https://nodejs.org/docs/latest-v24.x/api/http.html) via Context7; local runtime is newer. No vendor MCP binary was located by the initial targeted search; its launch path and capabilities remain to investigate.
+These endpoints are local operator capabilities, not an authenticated audience/bot API. A caller cannot supply arbitrary outbound paths, native file paths or vendor MCP calls through the executor.
 
-Next implement the official MCP connection/capability adapter and a dry-run prompt planner with target-bound validated plans. Then introduce controlled mutations against a disposable composition. Keep UI/API instance identity explicit. Runtime packaging, source catalog, queue model and provider integration should be layered on this tested connection boundary.
+## Official MCP discovery
+
+Run `npm run mcp:discover -- /path/to/resolume_arena_mcp_server [arguments...]`. It initializes an SDK stdio client, reads the paginated tool catalog, prints JSON and shuts down. It calls no mutation tools. The executable is supplied by the operator; Rezzo does not redistribute proprietary vendor binaries or expose process launch over HTTP.
+
+On Windows, the observed default executable is `C:\Program Files\Resolume Arena\mcp\resolume_arena_mcp_server.exe`. On macOS locate the executable within your Arena installation. Linux testing used the existing Wine runner and vendor Windows binary, with `WINEPREFIX`/`WINEDEBUG` passed explicitly. Paths are machine-specific and are not hardcoded. The installed 7.28 MCP bundle declares Windows/macOS compatibility. Native Linux support is not implied.
+
+Verified 22 tool schemas from vendor server `7.28.0-rev24303`. The CLI has no Arena endpoint flag. Multi-target MCP routing is not yet validated; target-specific REST writes remain the current executor. A future connector must prove target identity before enabling vendor mutation tools.
+
+## Validation and remaining work
+
+Run `npm test` and `npm run check`. Tests cover connections and browser boundary, persistence/corrupt data, catalog matching, expiry, resource validation, target isolation, stale plans, duplicate/concurrent execution, uncertain writes and restart recovery. Tests use disposable data and mock adapters; ordinary tests do not touch Arena.
+
+Observed 2026-10-04 on Linux, Node 26.8.1: reopened official Arena 7.28.0 revision 24303 under the existing Wine runner. Browser flow discovered 21 video sources and 113 effects, reviewed and built **Lines + Blur** in **Rezzoloom Development**, layer 1 slot 6 (previously empty). Independent readback confirmed Lines, Transform + Blur and Disconnected state. No existing clips were removed and playback was not triggered. Browser gallery displayed the applied recipe. Browser download filesystem delivery remains unverified. Windows/macOS and Node 24 execution remain untested here.
+
+Next: Laya/Jev provider integration and semantic plans, color/motion parameter validation, controlled playback/stop, Twitch intake and queue, animated gallery captures, richer archive metadata, community SSO and packaging. The current preview does not implement the complete product.
+
+References checked 2026-10-04: [Resolume OpenAPI](https://resolume.com/docs/restapi/swagger.yaml), [official MCP documentation](https://resolume.com/support/en/mcp-servers), installed vendor 7.28 manifest/tool schemas. SDK Context7 results mixed v1/main examples; APIs were verified against installed 1.32.0 declarations and the real discovery run, with [upstream v1 client docs](https://github.com/modelcontextprotocol/typescript-sdk/blob/v1.x/docs/client.md) as the matching branch reference.

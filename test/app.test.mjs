@@ -81,3 +81,28 @@ test('Arena protocol reads only, response validation, timeout and size bounds', 
   await assert.rejects(inspectArena(`${base}/wrong`), /supported Arena/);
   assert.throws(() => normalizeEndpoint('http://localhost/api/v1'), /origin only/);
 });
+
+test('studio HTTP routes preserve approval, authentication, saved target and archive boundaries', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'rezzo-http-studio-'));
+  const composition = { name: { id: 1, value: 'Mock' }, layers: [{ id: 2, clips: [{ id: 3, connected: { value: 'Empty' } }] }] };
+  const { compositionKey } = await import('../src/studio.mjs');
+  const app = await createApp({ dataDir: dir, studioOptions: {
+    discover: async () => ({ compositionName: 'Mock', compositionKey: compositionKey(composition), slots: [{ id: 3 }], sources: [{ id: 's', name: 'Lines', description: 'Neon' }], effects: [] }),
+    inspect: async () => ({ composition: structuredClone(composition) }),
+    write: async () => { composition.layers[0].clips[0] = { id: 3, connected: { value: 'Disconnected' }, video: { description: 'Lines', effects: [] } }; },
+  } });
+  await new Promise(resolve => app.listen(0, '127.0.0.1', resolve));
+  t.after(async () => { await new Promise(resolve => { app.close(resolve); app.closeAllConnections(); }); await rm(dir, { recursive: true, force: true }); });
+  const base = `http://127.0.0.1:${app.address().port}`;
+  const { token } = await fetch(`${base}/api/session`).then(r => r.json());
+  const request = (path, data) => fetch(`${base}${path}`, { method: data ? 'POST' : 'GET', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, ...(data ? { body: JSON.stringify(data) } : {}) });
+  assert.equal((await fetch(`${base}/api/gallery`)).status, 401);
+  const instance = await request('/api/instances', { name: 'Test', endpoint: 'http://localhost:8080' }).then(r => r.json());
+  const root = `/api/instances/${instance.id}`;
+  const plan = await request(`${root}/plan`, { prompt: 'Lines', sourceId: 's', clipId: 3, effectIds: [], mode: 'light' }).then(r => r.json());
+  assert.equal((await request(`${root}/execute`, { planId: plan.id })).status, 400);
+  const result = await request(`${root}/execute`, { planId: plan.id, approved: true }).then(r => r.json()); assert.equal(result.status, 'applied');
+  assert.equal((await request(`${root}/execute`, { planId: plan.id, approved: true })).status, 409);
+  const entries = await request('/api/gallery').then(r => r.json()); assert.equal(entries.length, 1); assert.equal(entries[0].before, undefined);
+  const archived = await request(`/api/gallery/${plan.id}`).then(r => r.json()); assert.ok(archived.before); assert.ok(archived.after);
+});

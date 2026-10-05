@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { openStore } from './store.mjs';
+import { openStudio, suggest } from './studio.mjs';
 import { AppError, inspectArena } from './arena.mjs';
 
 const assets = new Map([
@@ -16,8 +17,9 @@ async function body(req) {
   for await (const chunk of req) { size += chunk.length; if (size > 16_384) throw new AppError('Request too large.', 413); parts.push(chunk); }
   try { return JSON.parse(Buffer.concat(parts).toString('utf8')); } catch { throw new AppError('Invalid JSON.'); }
 }
-export async function createApp({ dataDir, probe = inspectArena } = {}) {
+export async function createApp({ dataDir, probe = inspectArena, studioOptions } = {}) {
   const store = await openStore(dataDir);
+  const studio = await openStudio(dataDir, studioOptions);
   const token = randomBytes(32).toString('hex');
   const statuses = new Map(); const busy = new Set();
   const server = createServer({ requestTimeout: 10_000, headersTimeout: 10_000 }, async (req, res) => {
@@ -39,10 +41,31 @@ export async function createApp({ dataDir, probe = inspectArena } = {}) {
         res.writeHead(200, { 'Content-Type': type });
         res.end(await readFile(fileURLToPath(new URL(`../public/${file}`, import.meta.url)))); return;
       }
-      if (req.method === 'GET' && path === '/api/session') return send(200, { token, mode: 'local', version: '0.1.0' });
+      if (req.method === 'GET' && path === '/api/session') return send(200, { token, mode: 'local', version: '0.2.0' });
       if (req.headers.authorization !== `Bearer ${token}`) throw new AppError('Local session required. Reload the console.', 401);
       if (req.method === 'GET' && path === '/api/instances') return send(200, store.list().map(item => ({ ...item, status: statuses.get(item.id) ?? { state: 'unchecked' } })));
       if (req.method === 'POST' && path === '/api/instances') return send(201, await store.add(await body(req)));
+      if (req.method === 'GET' && path === '/api/gallery') return send(200, studio.list());
+      const recipeMatch = path.match(/^\/api\/gallery\/([a-f0-9-]+)$/);
+      if (req.method === 'GET' && recipeMatch) return send(200, studio.get(recipeMatch[1]));
+      const studioMatch = path.match(/^\/api\/instances\/([a-f0-9-]+)\/(catalog|suggest|plan|execute)$/);
+      if (studioMatch && req.method === 'POST') {
+        const [, id, action] = studioMatch;
+        const item = store.get(id);
+        if (busy.has(id) || busy.size >= 4) throw new AppError('This connection is busy. Try again shortly.', 409);
+        busy.add(id);
+        try {
+          if (action === 'catalog') return send(200, await studio.discover(item.endpoint));
+          const input = await body(req);
+          if (action === 'suggest') {
+            if (typeof input?.prompt !== 'string' || input.prompt.length > 2000) throw new AppError('Prompt must be at most 2000 characters.');
+            const available = await studio.discover(item.endpoint);
+            return send(200, { planner: 'catalog-keyword-matcher', sources: suggest(input.prompt, available.sources), effects: suggest(input.prompt, available.effects) });
+          }
+          if (action === 'plan') return send(201, await studio.plan(item, input));
+          return send(200, await studio.execute(input?.planId, item, input?.approved));
+        } finally { busy.delete(id); }
+      }
       const match = path.match(/^\/api\/instances\/([a-f0-9-]+)(?:\/(inspect|snapshot))?$/);
       if (match) {
         const [, id, action] = match;

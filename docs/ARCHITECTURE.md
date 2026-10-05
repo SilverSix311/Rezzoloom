@@ -1,6 +1,6 @@
 # Architecture proposal
 
-The first implemented slice uses Node >=24 ES modules and a browser JavaScript/CSS UI, with no third-party dependencies. TypeScript/React remain possible future choices. Most components below are still planned; see [development status](DEVELOPMENT.md) for the implementation boundary.
+The first implemented slice uses Node >=24 ES modules and a browser JavaScript/CSS UI, with the official MCP SDK used by an on-demand discovery CLI. TypeScript/React remain possible future choices. Most components below are still planned; see [development status](DEVELOPMENT.md) for the implementation boundary.
 
 ```mermaid
 flowchart LR
@@ -30,7 +30,7 @@ flowchart LR
 - **MCP boundary:** narrow tools for catalog/state reads, plan preview, and validated execution. Do not expose unrestricted vendor tools to audience-driven planning.
 - **Arena adapter:** maps validated actions to verified transport capabilities and reconciles the result with observed state.
 
-## Official MCP reuse — confirmed direction, integration research pending
+## Official MCP reuse — discovery implemented, mutation routing pending
 
 Resolume supplies an official MCP server in Arena 7.26+. Reuse it where possible as an upstream connection behind the same policy gate. Compare it with a Rezzoloom MCP facade backed by REST/WebSocket. Decide whether a custom server adds necessary bounded operations, batching, state checks, or portability; do not rebuild the entire vendor API by default.
 
@@ -38,7 +38,7 @@ An official-server integration would make Rezzoloom an MCP client. A custom faca
 
 ## Deployment proposal
 
-The service must connect to existing Arena installations locally, over LAN, or remotely. It is not restricted to running beside Arena. Both lightweight local and community installation profiles are required; see [gallery and install design](GALLERY_AND_INSTALLS.md). A small Arena-side connector is proposed for local MCP access and output capture, with authenticated encrypted remote transport. The transport and pairing mechanism remain undecided. On 2026-10-04 the user reported a working local Arena instance on Linux, available for low-performance functional tests. Its version, runtime and capabilities are not yet inspected; do not assume native Linux vendor support. Windows/macOS validation remains required.
+The service must connect to existing Arena installations locally, over LAN, or remotely. It is not restricted to running beside Arena. Both lightweight local and community installation profiles are required; see [gallery and install design](GALLERY_AND_INSTALLS.md). A small Arena-side connector is proposed for local MCP access and output capture, with authenticated encrypted remote transport. The transport and pairing mechanism remain undecided. On 2026-10-04 the user reported a working local Arena instance on Linux, available for low-performance functional tests. REST and MCP discovery have now been verified on Arena 7.28 under Wine; do not assume native Linux vendor support. Windows/macOS validation remains required.
 
 Prefer REST for discovery/commands and WebSocket for state tracking where supported. OSC is an optional capability-specific fallback, pending evidence of a gap. Never infer support from a protocol name alone.
 

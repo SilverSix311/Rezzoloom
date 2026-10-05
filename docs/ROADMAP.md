@@ -1,13 +1,13 @@
 # Roadmap
 
-Implementation started 2026-10-04. The local connection-manager foundation is implemented; remaining milestones are planned. See [current implementation](DEVELOPMENT.md).
+Implementation started 2026-10-04. The local connection manager, reviewed clip builder and recipe archive are implemented; remaining milestones are planned. See [current implementation](DEVELOPMENT.md).
 
 ## 0 — Resolve scope and prove the connection
 
 - [x] Identify Laya and Jev by TypeSafe AI; confirm both for MVP support.
 - [x] Confirm all Arena OSes targeted and local/LAN/remote connections; user reports Linux Arena available for functional tests.
 - [x] Verify local Arena REST product/composition access: 7.28.0 under Wine on Linux.
-- [ ] Locate and validate official MCP server separately.
+- [x] Locate official MCP server and verify initialization + discovery of 22 tools (mutation routing still pending).
 - [ ] Confirm model budget and supported Arena versions.
 - [ ] Validate local Laya and hosted Jev against the same representative visual requests.
 - [x] Confirm built-in visual construction, review/auto/trusted approvals, and Full/Light modes.
@@ -43,7 +43,7 @@ Research and implement YouTube then Kick (order revisitable), plus an external-b
 
 ## Validation strategy when code exists
 
-Parser cases and schema/policy rejection tests; contract tests against a fake adapter; replay/reconnect/partial-write scenarios; browser tests for setup and operator controls; opt-in hardware smoke tests against a disposable Arena composition. Never point CI at a live show. No runtime CI or fabricated passing tests are included in this documentation-only stub.
+Parser cases and schema/policy rejection tests; contract tests against a fake adapter; replay/reconnect/partial-write scenarios; browser tests for setup and operator controls; opt-in hardware smoke tests against a disposable Arena composition. Never point CI at a live show. Runtime tests now cover the implemented local foundation and reviewed recipe execution; CI remains pending.
 
 ## Gallery and community workstreams — confirmed scope, sequencing pending
 
@@ -71,6 +71,6 @@ See [portability requirements](PORTABILITY.md). Single-target early milestones d
 
 ## Current handoff — 2026-10-04
 
-Implemented first slice: Node >=24 local service and responsive browser UI; persistent multiple Arena profiles, per-target read-only inspection, diagnostics export, and tests. No third-party dependencies. Real Arena 7.28.0 under Wine verified; MCP and mutations remain untested. Current execution session may serve localhost:4310; restart via npm start when needed.
+Studio preview 0.2.0 adds discovered source/effect catalogs, keyword suggestions, operator-selected recipes, a shared validated REST execution boundary and searchable local recipe gallery. Plans bind target/composition/slot, expire, serialize and cannot be retried after execution. Partial failures and process interruption remain explicit. Official MCP SDK diagnostic verifies 22 tool schemas; vendor mutation routing remains pending. The service is local-only and does not yet implement community authentication.
 
-Validation: four Node test cases pass, syntax checks pass, browser add/check/offline-isolation verified. No writes to Arena. Source launchers exist for Windows/macOS/Linux, but only Linux execution has been verified; no standalone installer binaries. Next: official MCP capability adapter and dry-run intent planning, followed by controlled mutations. See [development guide](DEVELOPMENT.md). Broader queue/gallery/community requirements remain tracked above.
+Browser built Lines + Blur in development Arena layer 1 slot 6 and verified the gallery entry. Arena readback confirms the source/effect and stopped clip. Node tests and syntax checks pass; see [development guide](DEVELOPMENT.md) for detailed verification and remaining scope. Next integrate actual Laya/Jev decisions and color/motion plans, then controlled playback, Twitch/queue, captures, accounts and cross-platform packaging. Do not label the keyword matcher as AI or the recipe download as a native Arena composition.

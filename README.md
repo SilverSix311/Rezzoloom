@@ -2,7 +2,7 @@
 
 Rezzoloom (**Rezzo** for short). Turn audience prompts into controlled changes to a live Resolume Arena composition.
 
-**Status: foundation preview (0.1.0).** A runnable local web console saves multiple Arena connections, reads composition state, and exports diagnostic snapshots. AI control, MCP, chat, galleries, accounts, and bundled installers are still planned.
+**Status: studio preview (0.2.0).** The local console discovers Arena sources/effects, builds operator-reviewed clips in empty slots, and archives prompts/recipes/results in a searchable local gallery. Keyword suggestions are available; AI providers, playback/chat, community accounts, animated previews and bundled installers remain in development.
 
 Rezzoloom will connect an AI model, an MCP control interface, a browser-based operator console, and chat adapters. Twitch is the first target; YouTube, Kick, and other bots should be able to use a shared API later.
 
@@ -18,7 +18,7 @@ Rezzo must be portable/installable on **Windows, macOS, and Linux**, with suppor
 
 ## Run locally
 
-With Node.js 24+ installed, run `npm start` and open http://127.0.0.1:4310. No dependency installation is needed. See [development guide](docs/DEVELOPMENT.md) for data storage, validation, and current limitations.
+With Node.js 24+ installed, run `npm ci`, then `npm start` and open http://127.0.0.1:4310. The official MCP discovery CLI uses the pinned MCP SDK. See [development guide](docs/DEVELOPMENT.md) for data storage, validation, and current limitations.
 
 ## Requirements
 
@@ -45,12 +45,12 @@ Rezzoloom will control Arena; it will not replace its renderer or bundle Arena. 
 | [Open decisions](docs/DECISIONS.md) | Questions to resolve together |
 | [Research](docs/RESEARCH.md) | Official sources and compatibility caveats |
 
-All architecture, endpoint names, limits, and stack suggestions are proposals unless explicitly marked confirmed. Start the next discussion with the open decisions; implementation should follow an agreed MVP.
+All architecture, endpoint names, limits, and stack suggestions are proposals unless explicitly marked confirmed. Implementation status is tracked separately in the development guide.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). For now, contribute scope clarifications, architecture proposals, and reproducible integration research. Licensing has not been selected; this repository does not yet grant an open-source license.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Run the documented checks for code changes and keep implementation claims precise. Licensing has not been selected; this repository does not yet grant an open-source license.
 
 ## Current test environment
 
-Read-only checks on 2026-10-04 verified Arena 7.28.0 running under Wine on Linux, exposing product and composition REST endpoints. The browser console successfully inspected three layers and nine columns. Windows/macOS remain target Arena environments; no performance or official Linux-support claim is implied. See the [roadmap](docs/ROADMAP.md) for the next capability checks.
+Functional checks on 2026-10-04 verified Arena 7.28.0 running under Wine on Linux, exposing product and composition REST endpoints. The browser console built a reviewed Lines + Blur clip in an empty slot and archived the result. Official MCP discovery returned 22 tools. Windows/macOS remain target Arena environments; no performance or official Linux-support claim is implied. See the [roadmap](docs/ROADMAP.md) for the next capability checks.

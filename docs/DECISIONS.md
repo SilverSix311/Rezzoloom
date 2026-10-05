@@ -35,7 +35,7 @@ Qualifying direct-money donations boost and protect their linked request: config
 
 Five-second animated previews, downloads, training-friendly archives with use clearly disclosed in signup terms, automatic/editable tags, community tag +1/-1 voting, and credited remixes are confirmed. Multiple-composition mixing is an extension to explore. See [gallery](GALLERY_AND_INSTALLS.md), [queue](QUEUE_POLICY.md), and [archive](TRAINING_ARCHIVE.md) specifications.
 
-User reports a working low-performance Arena installation on this Linux machine, available for functional testing. Version, runtime, API/MCP access, capture, and persistence are not yet verified; Windows/macOS portability remains to test. No application implementation has been authorized by the documentation consolidation request.
+User reports a working low-performance Arena installation on this Linux machine, available for functional testing. Version, runtime, API/MCP access, capture, and persistence are not yet verified; Windows/macOS portability remains to test. The documentation consolidation initially preceded implementation; the user subsequently authorized building the product on 2026-10-04.
 
 ## Confirmed: portable and multiple-instance operation — 2026-10-04
 
@@ -48,3 +48,7 @@ Focus next on capability discovery and broad product questions, not another exha
 ## Decision record template
 
 For each settled choice, record: date, status, decision, reason, alternatives, consequences, and evidence. Link to any compatibility experiment. Revisit proposals when real Arena behavior contradicts assumptions.
+
+## Implementation started — 2026-10-04
+
+First slice uses dependency-free Node >=24 ES modules and browser JavaScript, with atomic local JSON profile persistence. Read-only Arena 7.28.0 REST inspection verified under Wine on Linux. This selects a lightweight initial stack without committing future UI/provider integrations to React or TypeScript. See [development status](DEVELOPMENT.md).

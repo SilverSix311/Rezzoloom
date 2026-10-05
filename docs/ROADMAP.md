@@ -1,12 +1,13 @@
 # Roadmap
 
-Each milestone is proposed; no application work has started.
+Implementation started 2026-10-04. The local connection-manager foundation is implemented; remaining milestones are planned. See [current implementation](DEVELOPMENT.md).
 
 ## 0 — Resolve scope and prove the connection
 
 - [x] Identify Laya and Jev by TypeSafe AI; confirm both for MVP support.
 - [x] Confirm all Arena OSes targeted and local/LAN/remote connections; user reports Linux Arena available for functional tests.
-- [ ] Inspect local Linux Arena version/runtime and read-only API/MCP availability; record evidence.
+- [x] Verify local Arena REST product/composition access: 7.28.0 under Wine on Linux.
+- [ ] Locate and validate official MCP server separately.
 - [ ] Confirm model budget and supported Arena versions.
 - [ ] Validate local Laya and hosted Jev against the same representative visual requests.
 - [x] Confirm built-in visual construction, review/auto/trusted approvals, and Full/Light modes.
@@ -70,6 +71,6 @@ See [portability requirements](PORTABILITY.md). Single-target early milestones d
 
 ## Current handoff — 2026-10-04
 
-Objective: consolidate confirmed decisions and publish planning docs before implementation. Linux Arena is user-reported working, not yet tool-verified; low performance is acceptable for functional tests. Next: inspect version/runtime/capabilities, then use a disposable composition for small integration checks. Capture/export fidelity and vendor MCP support are unresolved; do not infer them from Arena launching. Keep tests sequential/lightweight on this laptop; no training workloads or background workers during planning.
+Implemented first slice: Node >=24 local service and responsive browser UI; persistent multiple Arena profiles, per-target read-only inspection, diagnostics export, and tests. No third-party dependencies. Real Arena 7.28.0 under Wine verified; MCP and mutations remain untested. Current execution session may serve localhost:4310; restart via npm start when needed.
 
-Documentation validation: relative Markdown links and whitespace checks must pass before publishing. No runtime tests exist or were run for this planning pass. Windows/macOS hardware checks and performance benchmarks remain outstanding. All features here are requirements/proposals, not implemented behavior.
+Validation: four Node test cases pass, syntax checks pass, browser add/check/offline-isolation verified. No writes to Arena. Source launchers exist for Windows/macOS/Linux, but only Linux execution has been verified; no standalone installer binaries. Next: official MCP capability adapter and dry-run intent planning, followed by controlled mutations. See [development guide](DEVELOPMENT.md). Broader queue/gallery/community requirements remain tracked above.

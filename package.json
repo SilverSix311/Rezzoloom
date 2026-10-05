@@ -1,0 +1,8 @@
+{
+  "name": "rezzoloom",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": { "start": "node src/main.mjs", "test": "node --test", "check": "node --check src/server.mjs && node --check public/app.js" }
+}

@@ -1,6 +1,6 @@
 # Rezzoloom contributor guidance
 
-This repository is in planning. Read README.md and docs/DECISIONS.md first. Do not begin application implementation unless the current user request authorizes it.
+This repository has a local connection-manager foundation. Read README.md, docs/DEVELOPMENT.md and docs/DECISIONS.md first. The user authorized product implementation on 2026-10-04. Distinguish implemented behavior from the broader planning documents. Run npm test and npm run check for runtime changes.
 
 Separate confirmed requirements from proposals and verified vendor behavior. Cite official sources for external capabilities and record the version/date checked. Do not invent Resolume effect names, resource IDs, model providers, or unsupported API operations.
 

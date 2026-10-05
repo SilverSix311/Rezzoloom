@@ -1,6 +1,6 @@
 # Architecture proposal
 
-No implementation stack is selected. A TypeScript backend and React UI are a candidate for shared request schemas; evaluate model/MCP SDK support and packaging before committing.
+The first implemented slice uses Node >=24 ES modules and a browser JavaScript/CSS UI, with no third-party dependencies. TypeScript/React remain possible future choices. Most components below are still planned; see [development status](DEVELOPMENT.md) for the implementation boundary.
 
 ```mermaid
 flowchart LR

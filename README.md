@@ -2,7 +2,7 @@
 
 Rezzoloom (**Rezzo** for short). Turn audience prompts into controlled changes to a live Resolume Arena composition.
 
-**Status: planning only.** No application, bot, API, or MCP integration is implemented yet.
+**Status: foundation preview (0.1.0).** A runnable local web console saves multiple Arena connections, reads composition state, and exports diagnostic snapshots. AI control, MCP, chat, galleries, accounts, and bundled installers are still planned.
 
 Rezzoloom will connect an AI model, an MCP control interface, a browser-based operator console, and chat adapters. Twitch is the first target; YouTube, Kick, and other bots should be able to use a shared API later.
 
@@ -15,6 +15,10 @@ The intended flow is: receive a request, interpret its visual intent, match it t
 ## Portable deployment — confirmed
 
 Rezzo must be portable/installable on **Windows, macOS, and Linux**, with support for **multiple existing Arena instances** across local, LAN, and remote connections. Both install profiles share this requirement. See [portability plan](docs/PORTABILITY.md) for packaging, target isolation, and compatibility validation.
+
+## Run locally
+
+With Node.js 24+ installed, run `npm start` and open http://127.0.0.1:4310. No dependency installation is needed. See [development guide](docs/DEVELOPMENT.md) for data storage, validation, and current limitations.
 
 ## Requirements
 
@@ -49,4 +53,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). For now, contribute scope clarifications
 
 ## Current test environment
 
-The user reports a working local Arena instance on Linux (2026-10-04), available for functional checks despite low performance. Its version/runtime and integration behavior have not yet been verified. Windows/macOS remain target Arena environments; no performance or official Linux-support claim is implied. See the [roadmap](docs/ROADMAP.md) for the next capability checks.
+Read-only checks on 2026-10-04 verified Arena 7.28.0 running under Wine on Linux, exposing product and composition REST endpoints. The browser console successfully inspected three layers and nine columns. Windows/macOS remain target Arena environments; no performance or official Linux-support claim is implied. See the [roadmap](docs/ROADMAP.md) for the next capability checks.

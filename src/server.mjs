@@ -1,0 +1,70 @@
+import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { openStore } from './store.mjs';
+import { AppError, inspectArena } from './arena.mjs';
+
+const assets = new Map([
+  ['/', ['index.html', 'text/html; charset=utf-8']],
+  ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
+  ['/style.css', ['style.css', 'text/css; charset=utf-8']],
+]);
+async function body(req) {
+  if (!(req.headers['content-type'] ?? '').startsWith('application/json')) throw new AppError('JSON content type required.', 415);
+  let size = 0; const parts = [];
+  for await (const chunk of req) { size += chunk.length; if (size > 16_384) throw new AppError('Request too large.', 413); parts.push(chunk); }
+  try { return JSON.parse(Buffer.concat(parts).toString('utf8')); } catch { throw new AppError('Invalid JSON.'); }
+}
+export async function createApp({ dataDir, probe = inspectArena } = {}) {
+  const store = await openStore(dataDir);
+  const token = randomBytes(32).toString('hex');
+  const statuses = new Map(); const busy = new Set();
+  const server = createServer({ requestTimeout: 10_000, headersTimeout: 10_000 }, async (req, res) => {
+    const send = (status, value) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); };
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+    try {
+      const port = server.address()?.port;
+      const allowed = [`127.0.0.1:${port}`, `localhost:${port}`];
+      if (!allowed.includes(req.headers.host)) throw new AppError('Invalid host.', 403);
+      const origin = `http://${req.headers.host}`;
+      if (req.headers.origin && req.headers.origin !== origin) throw new AppError('Cross-origin requests are not allowed.', 403);
+      if (req.headers['sec-fetch-site'] && !['same-origin', 'none'].includes(req.headers['sec-fetch-site'])) throw new AppError('Cross-site requests are not allowed.', 403);
+      const path = new URL(req.url, origin).pathname;
+      if (req.method === 'GET' && assets.has(path)) {
+        const [file, type] = assets.get(path);
+        res.writeHead(200, { 'Content-Type': type });
+        res.end(await readFile(fileURLToPath(new URL(`../public/${file}`, import.meta.url)))); return;
+      }
+      if (req.method === 'GET' && path === '/api/session') return send(200, { token, mode: 'local', version: '0.1.0' });
+      if (req.headers.authorization !== `Bearer ${token}`) throw new AppError('Local session required. Reload the console.', 401);
+      if (req.method === 'GET' && path === '/api/instances') return send(200, store.list().map(item => ({ ...item, status: statuses.get(item.id) ?? { state: 'unchecked' } })));
+      if (req.method === 'POST' && path === '/api/instances') return send(201, await store.add(await body(req)));
+      const match = path.match(/^\/api\/instances\/([a-f0-9-]+)(?:\/(inspect|snapshot))?$/);
+      if (match) {
+        const [, id, action] = match;
+        const item = store.get(id);
+        if (!action && req.method === 'DELETE') { if (busy.has(id)) throw new AppError('Wait for this connection check to finish.', 409); await store.remove(id); statuses.delete(id); return send(200, { removed: true }); }
+        if (req.method === 'POST' && ['inspect', 'snapshot'].includes(action)) {
+          if (busy.has(id) || busy.size >= 4) throw new AppError('A connection check is already running. Try again shortly.', 409);
+          busy.add(id);
+          try {
+            const result = await probe(item.endpoint);
+            const status = { state: 'connected', ...result.summary };
+            statuses.set(id, status);
+            if (action === 'inspect') return send(200, status);
+            return send(200, { schemaVersion: 1, kind: 'rezzo-arena-state-snapshot', replayable: false, instance: item, capturedAt: result.summary.checkedAt, product: result.product, composition: result.composition });
+          } catch (error) {
+            statuses.set(id, { state: 'offline', checkedAt: new Date().toISOString(), message: error instanceof AppError ? error.message : 'Arena check failed.' });
+            throw error;
+          } finally { busy.delete(id); }
+        }
+      }
+      throw new AppError('Route not found.', 404);
+    } catch (error) { if (!res.headersSent) send(error.status ?? 500, { error: error.status ? error.message : 'Local service error. Check the data directory is writable.' }); else res.end(); }
+  });
+  return server;
+}

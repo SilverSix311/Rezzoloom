@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile, rename, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { AppError } from './arena.mjs';
+import { AppError, normalizeEndpoint } from './arena.mjs';
 import { DEFAULT_QUEUE_CONFIG, rankRequests, applyAdjustment } from './queue.mjs';
 
 export const LOCAL_OPERATOR = Object.freeze({ id: 'local:operator', role: 'operator' });
@@ -26,7 +26,7 @@ function operator(actor) { if (actor?.id !== LOCAL_OPERATOR.id || actor?.role !=
 /** One process owns this file. Requests and their idempotency receipts commit together.
  * External adapters are deliberately not exposed until their identity verification exists.
  */
-export async function openQueue(directory, { now = Date.now } = {}) {
+export async function openQueue(directory, { now = Date.now, resolveRecipe } = {}) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   const filename = join(directory, 'queue.json');
   let data;
@@ -47,6 +47,21 @@ export async function openQueue(directory, { now = Date.now } = {}) {
     }
     for (const setting of Object.values(data.configs)) config(setting);
   } catch (error) { throw new Error(`Invalid queue store; preserve and repair ${filename}.`, { cause: error }); }
+  data.playback ??= {};
+  if (typeof data.playback !== 'object' || Array.isArray(data.playback)) throw new Error('Invalid playback store.');
+  for (const [id, state] of Object.entries(data.playback)) {
+    if (!state || typeof state.paused !== 'boolean') throw new Error('Invalid playback state; preserve the queue store.');
+    const active = state.active;
+    if (active) {
+      const request = data.requests.find(x => x.id === active.requestId && x.instanceId === id && x.status === 'playing');
+      if (!request || request.recipeId !== active.recipeId || !['starting', 'playing', 'stopping', 'uncertain'].includes(active.phase) || !Number.isSafeInteger(active.durationMs) || active.durationMs < 1000 || active.durationMs > 3600000 || !Number.isSafeInteger(active.startedAt) || (active.phase === 'playing' && !Number.isSafeInteger(active.endsAt))) throw new Error('Invalid active playback; preserve the queue store.');
+      normalizeEndpoint(active.endpoint);
+    }
+  }
+  for (const request of data.requests) {
+    if (request.recipeId && (typeof request.recipeId !== 'string' || !Number.isSafeInteger(request.durationMs) || request.durationMs < 1000 || request.durationMs > 3600000)) throw new Error('Invalid attached recipe.');
+    if (request.status === 'playing' && data.playback[request.instanceId]?.active?.requestId !== request.id) throw new Error('Playing request has no recovery record.');
+  }
   let pending = Promise.resolve();
   function mutate(instanceId, input, actor, reduce) {
     operator(actor); text(instanceId, 'Target', 100); text(input.eventId, 'Event ID', 100);
@@ -56,7 +71,7 @@ export async function openQueue(directory, { now = Date.now } = {}) {
     const job = pending.then(async () => {
       const prior = data.events.find(x => x.key === key);
       if (prior) { if (prior.fingerprint !== fingerprint) fail('Event ID was already used for a different operation.', 409); return structuredClone(prior.result); }
-      if (data.events.length >= 10000) fail('Queue event archive limit reached. Preserve the archive before maintenance.', 409);
+      if (data.events.length >= 10000 && input.operation !== 'playback') fail('Queue event archive limit reached. Preserve the archive before maintenance.', 409);
       const draft = structuredClone(data); const timestamp = now();
       const result = reduce(draft, timestamp);
       draft.revision++;
@@ -69,6 +84,13 @@ export async function openQueue(directory, { now = Date.now } = {}) {
     pending = job.catch(() => {}); return job;
   }
   return {
+    targets: () => [...new Set([...data.requests.map(x => x.instanceId), ...Object.keys(data.playback)])],
+    updatePlayback(instanceId, reduce) {
+      return mutate(instanceId, { eventId: randomUUID(), operation: 'playback' }, LOCAL_OPERATOR, (draft, timestamp) => {
+        draft.playback[instanceId] ??= { paused: true, active: null };
+        return reduce(draft.playback[instanceId], draft.requests.filter(x => x.instanceId === instanceId), timestamp);
+      });
+    },
     snapshot(instanceId) {
       const settings = data.configs[instanceId] ?? defaults();
       const requests = data.requests.filter(x => x.instanceId === instanceId);
@@ -76,11 +98,11 @@ export async function openQueue(directory, { now = Date.now } = {}) {
       const ranked = rankRequests(requests, { instanceId, now: sampledAt, config: settings });
       // Show scores for awaiting-review rows too without changing eligibility.
       const scores = rankRequests(requests.map(x => ({ ...x, approved: true })), { instanceId, now: sampledAt, config: settings });
-      return structuredClone({ revision: data.revision, sampledAt, config: settings, ranked, requests: requests.map(x => ({ ...x, ranking: scores.find(s => s.id === x.id) ?? null })), events: data.events.filter(x => x.instanceId === instanceId).slice(-50) });
+      return structuredClone({ revision: data.revision, sampledAt, config: settings, playback: data.playback[instanceId] ?? { paused: true, active: null }, ranked, requests: requests.map(x => ({ ...x, ranking: scores.find(s => s.id === x.id) ?? null })), events: data.events.filter(x => x.instanceId === instanceId).slice(-50) });
     },
     command(instanceId, input, actor) {
-      object(input, ['eventId', 'operation', 'prompt', 'priority', 'requestId', 'delta', 'config', 'revision']);
-      const allowed = { enqueue: ['prompt', 'priority'], approve: ['requestId'], remove: ['requestId'], adjustNext: ['delta'], configure: ['config', 'revision'] };
+      object(input, ['eventId', 'operation', 'prompt', 'priority', 'requestId', 'delta', 'config', 'revision', 'recipeId', 'durationSeconds']);
+      const allowed = { enqueue: ['prompt', 'priority'], attach: ['requestId', 'recipeId', 'durationSeconds'], approve: ['requestId'], remove: ['requestId'], adjustNext: ['delta'], configure: ['config', 'revision'] };
       const fields = Object.hasOwn(allowed, input.operation) ? allowed[input.operation] : null; if (!fields) fail('Unsupported queue operation.');
       object(input, ['eventId', 'operation', ...fields]);
       return mutate(instanceId, input, actor, (draft, timestamp) => {
@@ -109,7 +131,19 @@ export async function openQueue(directory, { now = Date.now } = {}) {
         request = draft.requests.find(x => x.instanceId === instanceId && x.id === input.requestId);
         if (!request) fail('Queue request not found for this target.', 404);
         if (request.status !== 'pending') fail('Only pending requests can be changed.', 409);
-        if (input.operation === 'approve') request.approved = true;
+        if (input.operation === 'attach') {
+          const recipe = resolveRecipe?.(input.recipeId);
+          if (!recipe || recipe.status !== 'applied' || recipe.instance.id !== instanceId) fail('Choose a successfully built recipe on this target.', 409);
+          const duration = input.durationSeconds ?? 60;
+          if (typeof duration !== 'number' || !Number.isFinite(duration) || duration < 1 || duration > 3600 || Math.abs(duration * 1000 - Math.round(duration * 1000)) > Number.EPSILON * Math.max(1, duration * 1000) * 2) fail('Duration must be 1–3600 seconds in millisecond steps.');
+          request.recipeId = recipe.id; request.durationMs = Math.round(duration * 1000); request.approved = false;
+          return { requestId: request.id, outcome: 'recipe_attached_review_required' };
+        }
+        if (input.operation === 'approve') {
+          const recipe = request.recipeId && resolveRecipe?.(request.recipeId);
+          if (!recipe || recipe.status !== 'applied' || recipe.instance.id !== instanceId) fail('Attach a successfully built recipe on this target before approval.', 409);
+          request.approved = true;
+        }
         else request.status = 'removed';
         return { requestId: request.id, outcome: input.operation === 'approve' ? 'approved' : 'removed' };
       });

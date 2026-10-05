@@ -230,6 +230,7 @@ function renderQueue() {
   const restoreFocus = items.contains(document.activeElement); items.replaceChildren();
   if (restoreFocus) { const heading = document.querySelector('#queue-heading'); heading.tabIndex = -1; heading.focus({preventScroll:true}); }
   for (const form of document.querySelectorAll('#queue-add, #queue-adjust, #queue-settings')) for (const field of form.elements) field.disabled = field.id === 'queue-config-reload' ? !queueTarget.value : !queueSnapshot;
+  renderPlayback();
   document.querySelector('#queue-events').replaceChildren();
   if (!queueSnapshot) { items.append(el('p', 'Choose a saved connection to manage its queue.', 'empty')); document.querySelector('#queue-summary').textContent = 'No target loaded'; return; }
   const pending = queueSnapshot.requests.filter(x => x.status === 'pending');
@@ -243,8 +244,18 @@ function renderQueue() {
     const score = request.ranking; const c = score.components;
     row.append(el('strong', `${Number(score.score.toFixed(6))} points`, 'queue-score'), el('p', `Base ${c.base} + aging ${Number(c.aging.toFixed(6))} + adjustments ${c.adjustments} − bulk ${c.bulkPenalty}${request.admin ? ' · Admin fixed at 1000' : ''}`, 'meta'));
     const actions = el('div', undefined, 'actions');
-    if (!request.approved) actions.append(action('Approve request', () => queueRequestCommand({ operation: 'approve', requestId: request.id })));
+    if (!request.approved && request.recipeId) actions.append(action('Approve request', () => queueRequestCommand({ operation: 'approve', requestId: request.id })));
     actions.append(action('Remove request', () => queueRequestCommand({ operation: 'remove', requestId: request.id })));
+    const attachment = el('div', undefined, 'queue-attachment');
+    const recipes = galleryEntries.filter(x => x.status === 'applied' && x.instance.id === queueTarget.value);
+    const recipeLabel = el('label', 'Built recipe'); const picker = el('select'); picker.setAttribute('aria-label', `Built recipe for ${request.prompt}`);
+    picker.append(option('', 'Choose a built recipe'), ...recipes.map(x => option(x.id, `${x.source.name} · ${x.id.slice(0,8)} · ${x.prompt}`))); picker.value = request.recipeId ?? ''; recipeLabel.append(picker);
+    const durationLabel = el('label', 'Duration (seconds)'); const duration = el('input'); duration.type = 'number'; duration.min = '1'; duration.max = '3600'; duration.step = '0.001'; duration.value = (request.durationMs ?? 60000)/1000; duration.setAttribute('aria-label', `Duration for ${request.prompt}`); durationLabel.append(duration);
+    const attach = action('Attach & review again', () => queueRequestCommand({operation:'attach',requestId:request.id,recipeId:picker.value,durationSeconds:Number(duration.value)}));
+    attach.disabled = !recipes.length;
+    attachment.append(recipeLabel,durationLabel,attach);
+    row.append(el('p', request.recipeId ? `Attached ${request.recipeId.slice(0,8)} · ${request.durationMs/1000}s. Changing attachment clears approval.` : 'A built recipe and playback approval are required.', 'meta'), attachment);
+    actions.append(action('Build in studio', async () => { const item = instances.find(x => x.id === queueTarget.value); await openStudio(item); studioForm.elements.prompt.value = request.prompt; invalidateRecipe(); }));
     row.append(actions); items.append(row);
   }
   const events = document.querySelector('#queue-events'); events.replaceChildren();
@@ -258,13 +269,13 @@ function fillQueueSettings() {
   const c = queueSnapshot.config;
   for (const [name,value] of Object.entries({ bulkPenalty:c.bulkPenalty, agingPoints:c.agingPoints, agingSeconds:c.agingIntervalMs/1000, tier1:c.tierBases[0], tier2:c.tierBases[1], tier3:c.tierBases[2] })) form.elements.namedItem(name).value = value;
 }
-async function loadQueue(fillSettings = true) {
+async function loadQueue(fillSettings = true, quiet = false) {
   const generation = ++queueLoad; const target = queueTarget.value;
-  queueSnapshot = null; renderQueue();
+  if (!quiet) { queueSnapshot = null; renderQueue(); }
   if (!target) { fillQueueSettings(); return; }
-  const snapshot = await api(`/api/instances/${target}/queue`);
+  const [snapshot, recipes] = await Promise.all([api(`/api/instances/${target}/queue`), api('/api/gallery')]);
   if (generation !== queueLoad || target !== queueTarget.value) return;
-  queueSnapshot = snapshot; renderQueue(); if (fillSettings) fillQueueSettings();
+  galleryEntries = recipes; queueSnapshot = snapshot; renderQueue(); if (fillSettings) fillQueueSettings();
 }
 // A failed transport retry retains the same event ID and exact payload.
 let retryCommand = null;
@@ -280,7 +291,7 @@ async function queueCommand(command) {
   const result = await api(`/api/instances/${target}/queue`, 'POST', payload);
   retryCommand = null;
   if (target === queueTarget.value) await loadQueue(command.operation === 'configure');
-  notice.textContent = `Queue: ${result.outcome.replaceAll('_', ' ')}. Arena output is unchanged.`;
+  notice.textContent = `Queue: ${result.outcome.replaceAll('_', ' ')}.${queueSnapshot?.playback.paused ? ' Scheduler is paused.' : ' Scheduler is enabled.'}`;
   } finally { queueBusy = false; queueTarget.disabled = false; }
 }
 async function queueRequestCommand(command) {
@@ -300,4 +311,23 @@ queueSubmit('#queue-adjust', fields => ({ operation:'adjustNext', delta:Number(f
 queueSubmit('#queue-settings', fields => ({ operation:'configure', revision:settingsRevision, config:{ bulkPenalty:Number(fields.get('bulkPenalty')), agingPoints:Number(fields.get('agingPoints')), agingIntervalMs:Math.round(Number(fields.get('agingSeconds'))*1000), tierBases:[1,2,3].map(x => Number(fields.get(`tier${x}`))) } }));
 queueTarget.onchange = () => loadQueue().catch(error => { notice.textContent = error.message; });
 for (const id of ['#queue-refresh', '#queue-config-reload']) document.querySelector(id).onclick = () => loadQueue().catch(error => { notice.textContent = error.message; });
+function renderPlayback() {
+  const state = queueSnapshot?.playback; const active = state?.active;
+  const owned = queueSnapshot?.requests.find(x => x.id === active?.requestId);
+  document.querySelector('#playback-status').textContent = !state ? 'Choose a target or refresh its queue.' : `${state.paused ? 'Scheduler paused' : 'Scheduler enabled'}${active ? ` · ${active.phase}: ${owned?.prompt ?? active.requestId}${active.endsAt ? ` · due ${new Date(active.endsAt).toLocaleTimeString()}` : ''}` : ' · No owned clip'}${state.message ? ` · ${state.message.replaceAll('_', ' ')}` : ''}`;
+  for (const op of ['resume','pause','stop','reconcile']) document.querySelector(`#playback-${op}`).disabled = !state || (['stop','reconcile'].includes(op) && !active);
+}
+for (const operation of ['resume','pause','stop','reconcile']) document.querySelector(`#playback-${operation}`).onclick = async () => {
+  if (queueBusy || !queueTarget.value) return;
+  queueBusy = true; queueTarget.disabled = true;
+  for (const button of document.querySelectorAll('.playback-panel button')) button.disabled = true;
+  const target = queueTarget.value;
+  try { await api(`/api/instances/${target}/playback`, 'POST', {operation, ...(operation === 'resume' ? {confirmed:true} : {})}); notice.textContent = `Playback: ${operation}.`; }
+  catch (error) { notice.textContent = error.message; }
+  finally { queueBusy = false; queueTarget.disabled = false; await loadQueue(false).catch(error => { notice.textContent = error.message; }); }
+};
+setInterval(() => {
+  if (document.hidden || document.querySelector('#queue').hidden || queueBusy || !queueSnapshot || (queueSnapshot.playback.paused && !queueSnapshot.playback.active) || document.activeElement.closest('form, #queue-items, select')) return;
+  loadQueue(false, true).catch(error => { notice.textContent = error.message; });
+}, 2000);
 showView(); boot();

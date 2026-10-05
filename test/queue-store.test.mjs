@@ -7,16 +7,17 @@ import { openQueue, LOCAL_OPERATOR as actor } from '../src/queue-store.mjs';
 async function fixture(t) { const dir = await mkdtemp(join(tmpdir(), 'rezzo-queue-')); t.after(() => rm(dir, { recursive:true, force:true })); return dir; }
 const enqueue = (eventId, priority = 'standard') => ({ eventId, operation:'enqueue', prompt:'Neon lines', priority });
 test('queue commits concurrent requests, approvals, base snapshots and settings across restart', async t => {
-  const dir = await fixture(t); let now = 1000; let queue = await openQueue(dir, { now:() => now });
+  const dir = await fixture(t); let now = 1000; let queue = await openQueue(dir, { now:() => now, resolveRecipe:()=>({id:'recipe',status:'applied',instance:{id:'A'}}) });
   const [a,b] = await Promise.all([queue.command('A', enqueue('a'), actor), queue.command('A', enqueue('b'), actor)]);
   assert.equal(queue.snapshot('A').ranked.length, 0);
+  await queue.command('A', { eventId:'attach', operation:'attach', requestId:a.requestId, recipeId:'recipe' }, actor);
   await queue.command('A', { eventId:'approve', operation:'approve', requestId:a.requestId }, actor);
   now += 60000;
   assert.equal(queue.snapshot('A').ranked[0].score, 1);
   assert.equal(queue.snapshot('A').requests[1].ranking.score, -9);
   await queue.command('A', { eventId:'config', operation:'configure', revision:queue.snapshot('A').revision, config:{bulkPenalty:0.5,agingPoints:0.25,agingIntervalMs:1000,tierBases:[12.5,50,75]} }, actor);
   await queue.command('A', enqueue('tier','tier1'), actor);
-  queue = await openQueue(dir, { now:() => now });
+  queue = await openQueue(dir, { now:() => now, resolveRecipe:()=>({id:'recipe',status:'applied',instance:{id:'A'}}) });
   assert.equal(queue.snapshot('A').requests[2].baseScore, 12.5);
   assert.equal(queue.snapshot('A').requests[0].baseScore, 0);
   assert.equal(queue.snapshot('A').ranked[0].score, 15);

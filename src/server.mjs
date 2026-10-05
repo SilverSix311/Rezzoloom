@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { openPlayback } from './playback.mjs';
 import { openQueue, LOCAL_OPERATOR } from './queue-store.mjs';
 import { openStore } from './store.mjs';
 import { openStudio, suggest } from './studio.mjs';
@@ -19,12 +20,13 @@ async function body(req) {
   for await (const chunk of req) { size += chunk.length; if (size > 16_384) throw new AppError('Request too large.', 413); parts.push(chunk); }
   try { return JSON.parse(Buffer.concat(parts).toString('utf8')); } catch { throw new AppError('Invalid JSON.'); }
 }
-export async function createApp({ dataDir, probe = inspectArena, studioOptions } = {}) {
+export async function createApp({ dataDir, probe = inspectArena, studioOptions, playbackOptions } = {}) {
   const store = await openStore(dataDir);
   const studio = await openStudio(dataDir, studioOptions);
-  const queue = await openQueue(dataDir);
+  const queue = await openQueue(dataDir, { resolveRecipe: id => studio.get(id) });
   const token = randomBytes(32).toString('hex');
   const statuses = new Map(); const busy = new Set();
+  const playback = await openPlayback({ queue, store, studio, busy, ...playbackOptions });
   const server = createServer({ requestTimeout: 10_000, headersTimeout: 10_000 }, async (req, res) => {
     const send = (status, value) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); };
     res.setHeader('Cache-Control', 'no-store');
@@ -49,6 +51,12 @@ export async function createApp({ dataDir, probe = inspectArena, studioOptions }
       if (req.method === 'GET' && path === '/api/instances') return send(200, store.list().map(item => ({ ...item, status: statuses.get(item.id) ?? { state: 'unchecked' } })));
       if (req.method === 'POST' && path === '/api/instances') return send(201, await store.add(await body(req)));
       if (req.method === 'GET' && path === '/api/gallery') return send(200, studio.list());
+      const playbackMatch = path.match(/^\/api\/instances\/([a-f0-9-]+)\/playback$/);
+      if (playbackMatch && req.method === 'POST') {
+        const input = await body(req);
+        if (!input || Object.keys(input).some(x => !['operation', 'confirmed'].includes(x)) || (input.operation === 'resume' && input.confirmed !== true)) throw new AppError('Explicit approval is required to start queued playback.');
+        return send(200, await playback.command(playbackMatch[1], input.operation));
+      }
       const queueMatch = path.match(/^\/api\/instances\/([a-f0-9-]+)\/queue$/);
       if (queueMatch) {
         const id = queueMatch[1]; store.get(id);
@@ -79,7 +87,7 @@ export async function createApp({ dataDir, probe = inspectArena, studioOptions }
       if (match) {
         const [, id, action] = match;
         const item = store.get(id);
-        if (!action && req.method === 'DELETE') { if (busy.has(id)) throw new AppError('Wait for this connection check to finish.', 409); await store.remove(id); statuses.delete(id); return send(200, { removed: true }); }
+        if (!action && req.method === 'DELETE') { if (queue.snapshot(id).requests.some(x => ['pending', 'playing'].includes(x.status))) throw new AppError('Remove pending requests and reconcile playback before removing this connection.', 409); if (busy.has(id)) throw new AppError('Wait for this connection check to finish.', 409); await store.remove(id); statuses.delete(id); return send(200, { removed: true }); }
         if (req.method === 'POST' && ['inspect', 'snapshot'].includes(action)) {
           if (busy.has(id) || busy.size >= 4) throw new AppError('A connection check is already running. Try again shortly.', 409);
           busy.add(id);
@@ -98,5 +106,6 @@ export async function createApp({ dataDir, probe = inspectArena, studioOptions }
       throw new AppError('Route not found.', 404);
     } catch (error) { if (!res.headersSent) send(error.status ?? 500, { error: error.status ? error.message : 'Local service error. Check the data directory is writable.' }); else res.end(); }
   });
+  server.on('close', () => playback.close());
   return server;
 }

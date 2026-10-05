@@ -120,7 +120,8 @@ test('queue HTTP intake binds local identity, rejects forged privileges and isol
   let state = await request(route).then(r=>r.json());
   assert.equal(state.requests.length,1); assert.equal(state.requests[0].userId,'local:operator'); assert.equal(state.ranked.length,0);
   assert.equal((await request(`/api/instances/${b.id}/queue`,'POST',{eventId:'cross',operation:'approve',requestId:result.requestId})).status,404);
-  await request(route,'POST',{eventId:'approve',operation:'approve',requestId:result.requestId});
-  state = await request(route).then(r=>r.json()); assert.equal(state.ranked.length,1);
+  assert.equal((await request(route,'POST',{eventId:'approve',operation:'approve',requestId:result.requestId})).status,409);
+  state = await request(route).then(r=>r.json()); assert.equal(state.ranked.length,0);
+  assert.equal((await request(`/api/instances/${a.id}/playback`,'POST',{operation:'resume'})).status,400);
   assert.equal((await request(route,'POST',{eventId:'play',operation:'play',requestId:result.requestId})).status,400);
 });

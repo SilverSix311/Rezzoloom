@@ -9,7 +9,9 @@ Active implementation checklist. Keep completed items backed by code/tests; upda
 - [x] Persist local operator queue requests/events and approvals; deduplicate events before resolving their target.
 - [ ] Add verified external identity/payment adapters to queue intake (local operator only today).
 - [x] Expose queue and score breakdowns in the operator UI with a Queue Configuration page.
-- [ ] Connect reviewed plans to non-interrupting playback, configurable duration, pause/stop and restart reconciliation.
+- [x] Attach successfully built recipes to requests and require fresh playback approval.
+- [x] Schedule built clips without interruption, with per-request duration and pause/stop controls.
+- [x] Pause on restart/uncertain outcomes and provide read-only reconciliation and owned-clip stop.
 
 ## AI and Arena control
 
@@ -18,7 +20,8 @@ Active implementation checklist. Keep completed items backed by code/tests; upda
 - [ ] Add discovered color/motion parameter controls and validate ranges before execution.
 - [ ] Define complete Light/Full policies independently of approval policy; add bounded auto/trusted approvals.
 - [ ] Prove MCP target routing before vendor mutations; preserve the shared validator for every control path.
-- [ ] Verify clip playback/stop, reconnect and recovery on development Arena; add operator pause.
+- [x] Verify clip activation, timed stop/advancement and restart recovery on development Arena; add operator pause.
+- [ ] Broaden playback compatibility beyond Own Layer/Normal/no-snap/no-transition clips; test reconnect on Windows/macOS.
 - [ ] Support composition construction/replacement and recovery without claiming transactional rollback.
 - [ ] Establish supported Arena versions and test Windows/macOS alongside Linux-hosted Rezzo.
 
@@ -72,4 +75,4 @@ Details: [portability](docs/PORTABILITY.md), [open decisions](docs/DECISIONS.md)
 
 UI refinement now provides distinct hash-routed views, local gallery status/search filters, a side-by-side desktop recipe review, responsive mobile navigation, self-hosted Manrope and reduced-motion support. Backend authorization and review controls remain intact. Impeccable was installed as a user skill; no paid Figma workflow or continuous design service was added. DESIGN.md records the system. Browser verification and final validation are recorded in the development guide.
 
-Persistent local operator queue and event receipts now accompany the parser/scoring core. Queue and Configuration pages support approval/removal, manual next-request adjustments, tier starting values and aging/bulk settings. External verified identity/payment intake and playback wiring remain next. Laya/Jev contracts and grounded parameter planning remain outstanding. No complete AI, live queue, capture or community-login claims.
+Persistent local operator queue and event receipts now accompany the parser/scoring core. Queue and Configuration pages support approval/removal, manual next-request adjustments, tier starting values and aging/bulk settings. Built-clip attachment, playback approval, timed advancement and pause/stop/reconciliation are now implemented. External verified identity/payment intake remains next. Laya/Jev contracts and grounded parameter planning remain outstanding. The queue can now play operator-built clips; no complete AI, live chat intake, full-composition generation, capture or community-login claims.

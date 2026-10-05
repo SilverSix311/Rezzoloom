@@ -19,3 +19,4 @@
 @media(max-width:700px){.queue-layout>div:last-child{display:block}.queue-panel{padding:18px}.sidebar nav{overflow-x:auto}.target-bar a{font-size:12px}}
 
 @media(max-width:700px){.sidebar{flex-wrap:wrap}.sidebar nav{flex-basis:100%;min-width:0;justify-content:flex-start;overflow-x:auto}.sidebar nav a{flex-shrink:0;white-space:nowrap;font-size:11px}}
+.playback-panel{padding:24px 0;border-block:1px solid var(--line);margin-bottom:28px}.playback-panel h2{margin-top:0}.playback-panel .meta{max-width:75ch}.queue-attachment{display:flex;align-items:end;flex-wrap:wrap;gap:12px;margin:18px 0}.queue-attachment label{display:grid;gap:8px;font-size:12px;min-width:0;flex:1 1 140px}.queue-attachment select,.queue-attachment input{width:100%;min-width:0}.queue-attachment label:first-child{flex-basis:100%}.queue-attachment button{margin-bottom:0}#playback-status{overflow-wrap:anywhere}

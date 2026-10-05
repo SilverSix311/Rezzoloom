@@ -1,12 +1,12 @@
 # Chat and API contract proposal
 
-These are design sketches, not implemented or stable interfaces.
+The text parser is implemented in `src/chat.mjs`; event intake and HTTP contracts below remain design sketches. No live chat adapter is connected.
 
-## Command parsing
+## Command parsing — implemented core
 
 Accept `!rezz <prompt>` only at the start of a trimmed message, with a command boundary. Match the command case-insensitively. Strip a single balanced pair of outer double quotes; keep internal punctuation. Reject empty prompts and unmatched outer quotes with a useful reason. Do not interpret URLs, code, or embedded instructions as executable actions.
 
-| Input | Proposed result |
+| Input | Parser result |
 | --- | --- |
 | `!rezz "Synthwave, Purple, Orange, Pink, Cyan, and black. Neon grids. Ghosting effects"` | Accept visual prompt |
 | `!rezz neon grids` | Accept unquoted prompt |
@@ -16,7 +16,9 @@ Accept `!rezz <prompt>` only at the start of a trimmed message, with a command b
 | `!rezz` | Reject empty prompt |
 | `!rezz "blue` | Reject malformed quoting |
 
-Tentative defaults for discussion: 500 Unicode code points per prompt, 30-second per-user cooldown, 10-second channel cooldown, and 20 pending requests. Queue expiry remains undecided and must accommodate 60-second playback slots; plan expiry is separate from request waiting time. These are tunable product choices, not platform limits. Prefer rejecting overflow over silently dropping accepted work. Final values require a live-show trial.
+The parser defaults to 500 Unicode code points per prompt, configurable from 1–2000. It returns accepted/ignored/rejected results with reason codes; accepted means valid text, not queued or authorized. It treats prompt content as inert text.
+
+Tentative intake defaults for discussion: 30-second per-user cooldown, 10-second channel cooldown, and 20 pending requests. Queue expiry remains undecided and must accommodate 60-second playback slots; plan expiry is separate from request waiting time. These are tunable product choices, not platform limits. Prefer rejecting overflow over silently dropping accepted work. Final values require a live-show trial.
 
 ## Normalized chat event
 

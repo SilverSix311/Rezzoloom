@@ -30,6 +30,8 @@ Rezzoloom will control Arena; it will not replace its renderer or bundle Arena. 
 
 ## Planning map
 
+Use [TODO.md](TODO.md) for the active implementation checklist and current handoff.
+
 | Document | Purpose |
 | --- | --- |
 | [Portability](docs/PORTABILITY.md) | Windows/macOS/Linux packaging and multiple Arena targets |

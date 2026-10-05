@@ -56,3 +56,9 @@ Observed 2026-10-04 on Linux, Node 26.8.1: reopened official Arena 7.28.0 revisi
 Next: Laya/Jev provider integration and semantic plans, color/motion parameter validation, controlled playback/stop, Twitch intake and queue, animated gallery captures, richer archive metadata, community SSO and packaging. The current preview does not implement the complete product.
 
 References checked 2026-10-04: [Resolume OpenAPI](https://resolume.com/docs/restapi/swagger.yaml), [official MCP documentation](https://resolume.com/support/en/mcp-servers), installed vendor 7.28 manifest/tool schemas. SDK Context7 results mixed v1/main examples; APIs were verified against installed 1.32.0 declarations and the real discovery run, with [upstream v1 client docs](https://github.com/modelcontextprotocol/typescript-sdk/blob/v1.x/docs/client.md) as the matching branch reference.
+
+## Chat and queue policy core
+
+`src/chat.mjs` now parses bounded `!rezz` commands and returns accepted/ignored/rejected text results. `src/queue.mjs` computes target-specific scores and breakdowns, validates decimal inputs, filters approvals, applies the protection rule to pre-verified adjustments and prevents selecting a new request while one is playing. These pure modules do not run timers, persist queues, validate external identities/payments, send messages or control Arena. They are not exposed as HTTP chat endpoints yet.
+
+Nineteen automated tests pass after this increment, including eight parser/policy cases. No browser or Arena flow changed, so no additional live mutations were needed. Implementation choices and examples are in [queue policy](QUEUE_POLICY.md); remaining work and the active handoff are in [TODO.md](../TODO.md).

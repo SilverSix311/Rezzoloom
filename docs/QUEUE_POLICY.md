@@ -1,6 +1,6 @@
 # Queue, triggers, and donations
 
-Confirmed product decisions through 2026-10-04. No scheduling or payment integration is implemented. This score-based policy supersedes the initial strict Patreon > Twitch > everyone ordering.
+Confirmed product decisions through 2026-10-04. The pure ranking/selection and adjustment-policy core is implemented in `src/queue.mjs`; persistent scheduling, payment integration and Arena playback are not yet connected. This score-based policy supersedes the initial strict Patreon > Twitch > everyone ordering.
 
 ## Playback
 
@@ -17,7 +17,7 @@ Users may queue several requests. Users cannot cancel once queued; admins and mo
 - Activity/Bits: configurable positive or negative trigger adjustments. Positive activity/Bits earning targets only the user's next request; after it plays the next becomes eligible. Allow Bits-triggered sabotage against another user's next request.
 - Direct donations: configurable fixed or amount-scaled positive bonus plus protection when the configured minimum donation is met.
 
-Proposed calculation: for an unprotected request, clamp(base + aging + retained trigger adjustments - 10 * earlier_unprotected_pending_count, -100, 100). For a protected request, omit the bulk penalty and reject negative effects. Admin score remains 1000. Record components separately so recalculation does not erase earned points. Precision, treatment of values accumulated beyond the visible cap, and config changes to existing requests require implementation decisions and examples.
+Proposed calculation: for an unprotected request, clamp(base + aging + retained trigger adjustments - 10 * earlier_unprotected_pending_count, -100, 100). For a protected request, omit the bulk penalty and reject negative effects. Admin score remains 1000. Record components separately so recalculation does not erase earned points. The current core makes the implementation choices documented below; product configuration and event ingestion remain separate work.
 
 ## Donation protection
 
@@ -37,7 +37,7 @@ Keep trigger configuration server-authorized. Do not expose arbitrary code execu
 
 Favor higher-ranked gallery entries earlier without repeating a composition within a cycle. Start another cycle only once all eligible entries have played. Viewer-request priority is independent of gallery upvotes. Persist cycle progress as a proposed implementation. Determine how requested plays, new/remixed entries, removal, and incompatibility affect eligibility before implementation.
 
-## Validation examples to implement later
+## Validation examples
 
 - Three unprotected requests have bulk components 0/-10/-20; completion or moderator removal shifts remaining components to 0/-10 without losing earned points.
 - A protected request between two unprotected requests gets no bulk penalty and does not increase the later request's penalty.
@@ -45,3 +45,17 @@ Favor higher-ranked gallery entries earlier without repeating a composition with
 - At non-admin score 100, admin 1000 still wins; equal scores preserve arrival order.
 - Duplicate payment/Bits events apply once; sabotage cannot reduce a protected request.
 - Low/negative viewer scores still precede shuffle if eligible; no new request interrupts the current slot.
+
+## Current core implementation choices
+
+These are explicit starting choices for the implementation, not newly confirmed product requirements:
+
+- Scores use six decimal places with integer arithmetic internally. Input values with greater precision are rejected. Aging accrues continuously as elapsed milliseconds divided by the configured interval, truncating only below six decimal places. It never awards negative waiting time.
+- Keep base, aging, adjustments and bulk components separate. Clamp only the visible score; points accumulated above/below the cap remain in the components. Base scores are supplied as an intake snapshot. Changing the passed aging/bulk configuration recalculates all current requests; versioning configuration changes is still pending.
+- An earlier ordinary request continues to count toward its user's bulk penalty while playing; the penalty shrinks when it completes or is removed. Awaiting-approval requests count too, but cannot be selected. Protected and admin requests are exempt and excluded from these counts.
+- Protection rejects new negative adjustments. Earlier debits remain in history; protection is not a retroactive refund. Trusted donation attribution and refunds still require implementation.
+- Equal scores use server enqueue timestamp, then a unique per-instance arrival sequence. Platform-provided message timestamps must not be used to backdate priority.
+- `selectNextRequest` returns no candidate while the target has a playing request, and otherwise returns the highest-ranked approved pending request, including negative-score requests. A null result is not automatic permission to shuffle: the playback controller must distinguish busy from empty.
+- `applyAdjustment` operates only on an already-resolved pending target and returns a new request. It does not deduplicate, choose a user's next request, or verify payment/identity. Those boundaries must exist before exposing any intake endpoint. Pure input records with `protected: true` are trusted internal state, never proof of a donation.
+
+`test/intake-policy.test.mjs` covers scoring, target isolation, approval filtering, no interruption, quote parsing and decimal edge cases. Persistent event deduplication, duration handling and shuffle examples remain unimplemented. Track remaining tasks in [TODO.md](../TODO.md).

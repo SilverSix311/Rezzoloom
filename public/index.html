@@ -1,17 +1,53 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rezzo · Arena connections</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#171a18"><title>Rezzo · Visual workspace</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
 <body>
-<aside><a class="brand" href="/" aria-label="Rezzo home"><span class="mark">R</span> rezzo<span class="dot">.</span></a><div class="workspace">YOUR WORKSPACE <span>LOCAL</span></div><nav aria-label="Workspace"><a class="active" href="#connections">◉ &nbsp; Arena connections</a><a href="#gallery">▦ &nbsp; Local gallery</a></nav><div class="coming"><p>COMING NEXT</p><span>Playback queue</span></div><div class="aside-bottom"><span class="light"></span> Local operator console<small>Studio preview · 0.2.0</small></div></aside>
-<main><header><span>WORKSPACE <b>/</b> CONNECTIONS</span><span class="badge">OPERATOR PREVIEW</span></header><section class="intro"><div><p class="eyebrow">YOUR VISUAL WORLD, CONNECTED</p><h1>Arena connections</h1><p class="sub">One console. Every stage. Connect your Arena instances and see what’s running.</p></div><button id="add-button" class="primary">＋ Add Arena</button></section>
-<div id="notice" role="status" aria-live="polite"></div>
-<section class="stats" aria-label="Connection summary"><div><span>Saved instances</span><strong id="total">0</strong></div><div><span>Last checked online</span><strong id="online">0</strong></div><div><span>Control mode</span><strong class="small">Reviewed builds <span class="light"></span></strong></div></section>
-<div class="section-title" id="connections"><h2>Your stages</h2><span>Checks run on demand · no background polling</span></div><section id="cards" class="cards" aria-label="Saved Arena connections"></section>
-<section id="studio" class="studio card" hidden>
-<p class="eyebrow">PROMPT STUDIO</p><h2 id="studio-target"></h2><p id="catalog-note" class="meta"></p>
-<form id="studio-form"><label>Your visual idea<textarea name="prompt" rows="3" maxlength="2000" required placeholder="Neon lines, a purple haze, and ghosting"></textarea></label><button id="suggest" type="button">Find catalog matches</button><div id="suggestions" class="suggestions"></div>
-<div class="studio-grid"><label>Built-in source<select id="source" required></select></label><label>Empty clip slot<select id="slot" required></select></label><label>Control mode<select name="mode"><option value="light">Light · one effect</option><option value="full">Full · up to four effects</option></select></label><label>Effect chain<select id="effects" multiple size="6"></select><small>Ctrl/⌘ click to select multiple. Catalog order is the processing order.</small></label></div>
-<p class="hint">Both modes currently build one clip. Light limits effect count; it is not a photosensitivity or GPU-safety guarantee. Source/effect parameters use Arena defaults.</p><button type="submit" class="primary">Preview recipe</button></form><div id="review" aria-live="polite"></div></section>
-<section id="gallery"><div class="section-title"><h2>Local gallery</h2><span>Prompts, recipes &amp; execution records</span></div><div class="gallery-controls"><input id="gallery-filter" aria-label="Search gallery" placeholder="Search prompts, sources, effects or status"><select id="gallery-sort" aria-label="Gallery order"><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></div><p class="meta">Local operator archive. Downloads are Rezzo recipes and diagnostic records, not native Arena compositions. Animated previews and community features are coming later.</p><div id="gallery-items" class="cards"></div></section>
+<a class="skip-link" href="#main">Skip to workspace</a>
+<aside class="sidebar">
+  <a class="brand" href="#gallery" aria-label="Rezzo home"><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><path d="M4 5h14c7 0 10 8 4 12l6 10H18l-5-9H4z" fill="currentColor"/><path d="M10 10h8v3h-8z" fill="#171a18"/></svg><span>rezzo<span class="brand-dot">.</span></span></a>
+  <div class="workspace-label"><span class="workspace-avatar">R</span><div>Personal workspace<small>Local installation</small></div></div>
+  <nav aria-label="Workspace">
+    <a href="#gallery" data-view="gallery"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Gallery<span id="nav-gallery-count" class="nav-count">0</span></a>
+    <a href="#studio" data-view="studio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 3v8M16 13v8"/></svg>Prompt studio</a>
+    <a href="#connections" data-view="connections"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 21h8M12 16v5"/></svg>Connections<span id="total" class="nav-count">0</span></a>
+  </nav>
+  <div class="sidebar-note"><span class="review-dot"></span>Operator review<p>You decide what gets built.</p></div>
+  <div class="aside-bottom"><span class="version">Studio preview <span>0.2</span></span><small>Rezzoloom · Built for Arena</small></div>
+</aside>
+<main id="main" tabindex="-1">
+  <header class="topbar"><div>Workspace <span class="slash">/</span> <span id="view-name">Gallery</span></div><span class="local-badge"><span class="review-dot"></span>Local session</span></header>
+  <div id="notice" role="status" aria-live="polite"></div>
+  <section id="gallery" class="view" aria-labelledby="gallery-heading">
+    <div class="page-heading"><div><h1 id="gallery-heading">Gallery<span class="title-dot">.</span></h1><p>Your ideas, built and kept.</p></div><button id="new-recipe" class="primary">New recipe <span aria-hidden="true">↗</span></button></div>
+    <div class="library-toolbar"><div class="filter-tabs" role="group" aria-label="Recipe status"><button data-status="all" aria-pressed="true">All recipes <span id="gallery-count">0</span></button><button data-status="applied" aria-pressed="false">Built</button><button data-status="planned" aria-pressed="false">Planned</button><button data-status="attention" aria-pressed="false">Needs attention</button></div><select id="gallery-sort" aria-label="Gallery order"><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></div>
+    <div class="search-line"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input id="gallery-filter" aria-label="Search gallery" placeholder="Search prompts, sources or effects…" autocomplete="off"><span id="result-count" class="meta"></span></div>
+    <div id="gallery-items" class="gallery-list" aria-live="polite"></div>
+    <footer class="gallery-foot"><span>Saved on this device</span><p>Recipes include the prompt and execution record. Animated previews and native composition downloads are in development.</p></footer>
+  </section>
+  <section id="connections" class="view" aria-labelledby="connections-heading" hidden>
+    <div class="page-heading"><div><h1 id="connections-heading">Connections<span class="title-dot">.</span></h1><p>Your Arena instances, in one place.</p></div><button id="add-button" class="primary">Add Arena <span aria-hidden="true">+</span></button></div>
+    <div class="section-bar"><h2>Saved instances</h2><span><span id="online">0</span> last checked online · Checks run on demand</span></div>
+    <section id="cards" class="connections-list" aria-label="Saved Arena connections"></section>
+    <p class="section-help">Enable Webserver &amp; REST API in Arena to connect. Connection checks never change your composition.</p>
+  </section>
+  <section id="studio" class="view" aria-labelledby="studio-heading" hidden>
+    <div class="page-heading"><div><h1 id="studio-heading">Prompt studio<span class="title-dot">.</span></h1><p>Shape an idea into a recipe.</p></div><span class="mode-badge">Review before building</span></div>
+    <div class="target-bar"><label for="target-picker">Arena target</label><select id="target-picker"><option value="">Choose a connection</option></select><button id="load-target">Load catalog</button></div>
+    <div id="studio-empty" class="empty"><h2>Start with an Arena connection.</h2><p>Load its available sources, effects and empty clip slots to begin.</p><a class="text-link" href="#connections">Manage connections <span aria-hidden="true">↗</span></a></div>
+    <div id="studio-workspace" hidden>
+      <div class="target-context"><strong id="studio-target"></strong><span id="catalog-note" class="meta"></span></div>
+      <div class="studio-layout">
+        <form id="studio-form">
+          <label class="prompt-label" for="prompt">What do you have in mind?</label><textarea id="prompt" name="prompt" rows="5" maxlength="2000" required placeholder="Neon lines, a purple haze, and ghosting…"></textarea>
+          <div class="prompt-tools"><span class="meta">Catalog keyword matching · AI planning coming later</span><button id="suggest" type="button">Find matches</button></div><div id="suggestions" class="suggestions"></div>
+          <div class="recipe-fields"><h2>Build your recipe</h2><div class="studio-grid"><label>Built-in source<select id="source" required></select></label><label>Empty clip slot<select id="slot" required></select></label><label>Control mode<select name="mode"><option value="light">Light · one effect</option><option value="full">Full · up to four effects</option></select></label><label>Effect chain<select id="effects" multiple size="6"></select><small>Ctrl/⌘ click to select multiple. Effects use catalog order.</small></label></div></div>
+          <details class="limitations"><summary>Current build limits</summary><p>Both modes build one clip with Arena’s default parameters. Light limits effect count; it does not guarantee photosensitivity or GPU safety. Playback remains under your control in Arena.</p></details>
+          <button type="submit" class="primary preview-button">Review recipe <span aria-hidden="true">→</span></button>
+        </form>
+        <div class="review-column"><div class="review-header"><h2>Build review</h2><span>Manual approval</span></div><div id="review" aria-live="polite"></div><p class="review-note">Every attempt is saved to your local gallery, including incomplete builds.</p></div>
+      </div>
+    </div>
+  </section>
 </main>
-<dialog id="add-dialog"><form id="add-form"><div class="dialog-top"><p class="eyebrow">NEW CONNECTION</p><button type="button" id="close-dialog" class="quiet" aria-label="Close dialog">×</button></div><h2>Add an Arena instance</h2><p>Enable Webserver &amp; REST API in Arena’s preferences, then enter its address.</p><label>Connection name<input name="name" maxlength="80" required placeholder="Studio Arena" autocomplete="off"></label><label>Arena address<input name="endpoint" type="url" required value="http://127.0.0.1:8080" spellcheck="false"></label><p class="hint">Use an authorized local or trusted-network endpoint. Secure remote pairing is coming later.</p><p id="form-error" role="alert"></p><button type="submit" class="primary">Save connection</button></form></dialog>
+<dialog id="add-dialog" aria-labelledby="dialog-title"><form id="add-form"><div class="dialog-top"><h2 id="dialog-title">Connect Arena</h2><button type="button" id="close-dialog" class="icon-button" aria-label="Close dialog">×</button></div><p>Enable Webserver &amp; REST API in Arena, then enter its address.</p><label>Connection name<input name="name" maxlength="80" required placeholder="Studio Arena" autocomplete="off"></label><label>Arena address<input name="endpoint" type="url" required value="http://127.0.0.1:8080" spellcheck="false"></label><p class="hint">Use a local or trusted-network endpoint. Secure remote pairing is in development.</p><p id="form-error" role="alert"></p><button type="submit" class="primary">Save connection</button></form></dialog>
 </body></html>

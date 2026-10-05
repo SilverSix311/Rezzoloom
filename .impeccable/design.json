@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-05T03:27:46.190515+00:00",
+  "title": "Design System: Rezzo",
+  "extensions": {
+    "shadows": [],
+    "motion": [
+      {
+        "name": "view-entry",
+        "value": "250ms cubic-bezier(.16,1,.3,1)",
+        "purpose": "Small view entrance; disabled under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wide",
+        "value": "1600px"
+      },
+      {
+        "name": "compact-desktop",
+        "value": "1100px"
+      },
+      {
+        "name": "mobile",
+        "value": "700px"
+      },
+      {
+        "name": "small-mobile",
+        "value": "430px"
+      }
+    ]
+  },
+  "narrative": {
+    "overview": "Warm charcoal operator workspace with restrained lime and self-hosted Manrope.",
+    "rules": [
+      {
+        "name": "Truthful state",
+        "body": "Missing previews are labeled. No fake live playback or AI state.",
+        "section": "components"
+      }
+    ]
+  }
+}

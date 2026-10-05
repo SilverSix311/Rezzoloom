@@ -57,6 +57,8 @@ Details: [portability](docs/PORTABILITY.md), [open decisions](docs/DECISIONS.md)
 
 ## Completed foundation
 
+- [x] Install Impeccable skill and refine the local UI into responsive Gallery, Studio and Connections views; record the design system.
+
 - [x] Local web console, saved multiple Arena targets, isolated inspection and diagnostic snapshots.
 - [x] Live source/effect/empty-slot discovery and explicitly labeled keyword suggestions.
 - [x] Operator-reviewed recipes, expiry/stale-state checks, serialized writes and uncertain-outcome handling.
@@ -67,4 +69,6 @@ Details: [portability](docs/PORTABILITY.md), [open decisions](docs/DECISIONS.md)
 
 ## Current handoff
 
-Completed `src/chat.mjs` and `src/queue.mjs`, covered by `test/intake-policy.test.mjs`. All 19 tests and syntax checks pass. The pure policy core expects trusted request/adjustment data; it does not verify platform roles or payments and is not exposed as a chat endpoint. No Arena testing was needed for this increment. Next: persistent queue/event lifecycle with verified intake boundaries, then configuration/queue UI and playback integration. Laya/Jev contracts remain a parallel priority. See the development guide for runtime limitations.
+UI refinement now provides distinct hash-routed views, local gallery status/search filters, a side-by-side desktop recipe review, responsive mobile navigation, self-hosted Manrope and reduced-motion support. Backend authorization and review controls remain intact. Impeccable was installed as a user skill; no paid Figma workflow or continuous design service was added. DESIGN.md records the system. Browser verification and final validation are recorded in the development guide.
+
+Parser and pure queue policy are implemented and tested, but persistence, verified event intake, configuration UI and playback wiring remain next. Laya/Jev contracts and grounded parameter planning remain outstanding. No complete AI, live queue, capture or community-login claims.

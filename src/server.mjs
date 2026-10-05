@@ -7,6 +7,7 @@ import { openStudio, suggest } from './studio.mjs';
 import { AppError, inspectArena } from './arena.mjs';
 
 const assets = new Map([
+  ...[400, 600, 800].map(weight => [`/fonts/manrope-${weight}.ttf`, [`fonts/manrope-${weight}.ttf`, 'font/ttf']]),
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/style.css', ['style.css', 'text/css; charset=utf-8']],

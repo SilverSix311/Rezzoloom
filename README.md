@@ -30,7 +30,7 @@ Rezzoloom will control Arena; it will not replace its renderer or bundle Arena. 
 
 ## Planning map
 
-Use [TODO.md](TODO.md) for the active implementation checklist and current handoff.
+Use [TODO.md](TODO.md) for the active implementation checklist and current handoff, and [DESIGN.md](DESIGN.md) for the frontend design system.
 
 | Document | Purpose |
 | --- | --- |

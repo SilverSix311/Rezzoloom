@@ -1,0 +1,118 @@
+import { mkdir, readFile, writeFile, rename, unlink } from 'node:fs/promises';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { AppError } from './arena.mjs';
+import { DEFAULT_QUEUE_CONFIG, rankRequests, applyAdjustment } from './queue.mjs';
+
+export const LOCAL_OPERATOR = Object.freeze({ id: 'local:operator', role: 'operator' });
+const defaults = () => ({ ...DEFAULT_QUEUE_CONFIG, tierBases: [25, 50, 75] });
+function fail(message, status = 400) { throw new AppError(message, status); }
+function object(value, keys) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(k => !keys.includes(k))) fail('Unexpected queue fields.');
+}
+function text(value, name, max = 2000) {
+  if (typeof value !== 'string' || !value.trim() || value.length > max) fail(`${name} must contain 1–${max} characters.`);
+  return value.trim();
+}
+function config(value) {
+  object(value, ['bulkPenalty', 'agingPoints', 'agingIntervalMs', 'tierBases']);
+  if (Object.keys(value).length !== 4) fail('All queue settings are required.');
+  if (!Array.isArray(value.tierBases) || value.tierBases.length !== 3 || value.tierBases.some(x => typeof x !== 'number' || !Number.isFinite(x) || x < 0 || x > 100 || Math.abs(x * 1e6 - Math.round(x * 1e6)) > 1e-7)) fail('Three tier bases between 0 and 100 are required (six decimal places maximum).');
+  try { rankRequests([], { instanceId: 'validate', now: 0, config: value }); } catch (e) { fail(e.message); }
+  return structuredClone(value);
+}
+function operator(actor) { if (actor?.id !== LOCAL_OPERATOR.id || actor?.role !== 'operator') fail('Verified local operator required.', 403); }
+
+/** One process owns this file. Requests and their idempotency receipts commit together.
+ * External adapters are deliberately not exposed until their identity verification exists.
+ */
+export async function openQueue(directory, { now = Date.now } = {}) {
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const filename = join(directory, 'queue.json');
+  let data;
+  try { data = JSON.parse(await readFile(filename, 'utf8')); }
+  catch (error) { if (error.code !== 'ENOENT') throw new Error(`Cannot read queue store; preserve and repair ${filename}.`, { cause: error }); data = { schemaVersion: 1, revision: 0, requests: [], events: [], configs: {} }; }
+  try {
+    if (data.schemaVersion !== 1 || !Number.isSafeInteger(data.revision) || data.revision < 0 || !Array.isArray(data.requests) || !Array.isArray(data.events) || !data.configs || typeof data.configs !== 'object' || Array.isArray(data.configs)) throw Error();
+    const ids = new Set();
+    for (const r of data.requests) {
+      text(r.id, 'id', 100); text(r.instanceId, 'target', 100); text(r.prompt, 'prompt');
+      if (ids.has(r.id) || r.userId !== LOCAL_OPERATOR.id || r.protected !== false) throw Error(); ids.add(r.id);
+    }
+    for (const id of new Set(data.requests.map(r => r.instanceId))) rankRequests(data.requests, { instanceId: id, now: now() });
+    const keys = new Set();
+    for (const event of data.events) {
+      text(event.key, 'event key', 200); text(event.fingerprint, 'fingerprint', 10000);
+      if (keys.has(event.key) || !event.result || event.actorId !== LOCAL_OPERATOR.id) throw Error(); keys.add(event.key);
+    }
+    for (const setting of Object.values(data.configs)) config(setting);
+  } catch (error) { throw new Error(`Invalid queue store; preserve and repair ${filename}.`, { cause: error }); }
+  let pending = Promise.resolve();
+  function mutate(instanceId, input, actor, reduce) {
+    operator(actor); text(instanceId, 'Target', 100); text(input.eventId, 'Event ID', 100);
+    const key = `${actor.id}:${input.eventId}`;
+    // Canonical key order makes retries independent of JSON property order.
+    const fingerprint = JSON.stringify([instanceId, Object.entries(input).filter(([k]) => k !== 'eventId').sort(([a], [b]) => a.localeCompare(b))]);
+    const job = pending.then(async () => {
+      const prior = data.events.find(x => x.key === key);
+      if (prior) { if (prior.fingerprint !== fingerprint) fail('Event ID was already used for a different operation.', 409); return structuredClone(prior.result); }
+      if (data.events.length >= 10000) fail('Queue event archive limit reached. Preserve the archive before maintenance.', 409);
+      const draft = structuredClone(data); const timestamp = now();
+      const result = reduce(draft, timestamp);
+      draft.revision++;
+      draft.events.push({ key, fingerprint, actorId: actor.id, instanceId, at: timestamp, operation: input.operation, input: structuredClone(input), result });
+      const temporary = `${filename}.${randomUUID()}.tmp`;
+      try { await writeFile(temporary, `${JSON.stringify(draft, null, 2)}\n`, { mode: 0o600 }); await rename(temporary, filename); }
+      catch (error) { await unlink(temporary).catch(() => {}); throw error; }
+      data = draft; return structuredClone(result);
+    });
+    pending = job.catch(() => {}); return job;
+  }
+  return {
+    snapshot(instanceId) {
+      const settings = data.configs[instanceId] ?? defaults();
+      const requests = data.requests.filter(x => x.instanceId === instanceId);
+      const sampledAt = now();
+      const ranked = rankRequests(requests, { instanceId, now: sampledAt, config: settings });
+      // Show scores for awaiting-review rows too without changing eligibility.
+      const scores = rankRequests(requests.map(x => ({ ...x, approved: true })), { instanceId, now: sampledAt, config: settings });
+      return structuredClone({ revision: data.revision, sampledAt, config: settings, ranked, requests: requests.map(x => ({ ...x, ranking: scores.find(s => s.id === x.id) ?? null })), events: data.events.filter(x => x.instanceId === instanceId).slice(-50) });
+    },
+    command(instanceId, input, actor) {
+      object(input, ['eventId', 'operation', 'prompt', 'priority', 'requestId', 'delta', 'config', 'revision']);
+      const allowed = { enqueue: ['prompt', 'priority'], approve: ['requestId'], remove: ['requestId'], adjustNext: ['delta'], configure: ['config', 'revision'] };
+      const fields = Object.hasOwn(allowed, input.operation) ? allowed[input.operation] : null; if (!fields) fail('Unsupported queue operation.');
+      object(input, ['eventId', 'operation', ...fields]);
+      return mutate(instanceId, input, actor, (draft, timestamp) => {
+        const settings = draft.configs[instanceId] ?? defaults();
+        if (input.operation === 'enqueue') {
+          const priority = input.priority ?? 'standard';
+          if (!['standard', 'tier1', 'tier2', 'tier3', 'admin'].includes(priority)) fail('Invalid priority class.');
+          if (draft.requests.filter(x => x.instanceId === instanceId && x.status === 'pending').length >= 500) fail('Pending queue limit reached (500).', 409);
+          const request = { id: randomUUID(), instanceId, userId: actor.id, prompt: text(input.prompt, 'Prompt'), priority, baseScore: priority.startsWith('tier') ? settings.tierBases[Number(priority.slice(-1)) - 1] : 0, admin: priority === 'admin', protected: false, approved: false, status: 'pending', createdAt: timestamp, sequence: draft.revision + 1, adjustments: [] };
+          draft.requests.push(request); return { requestId: request.id, outcome: 'queued' };
+        }
+        if (input.operation === 'configure') {
+          if (input.revision !== draft.revision) fail('Queue changed. Reload settings before saving.', 409);
+          draft.configs[instanceId] = config(input.config); return { outcome: 'configured', config: draft.configs[instanceId] };
+        }
+        let request;
+        if (input.operation === 'adjustNext') {
+          // Validate even when no pending request exists. Resolve only after deduplication.
+          try { applyAdjustment({ admin: false, protected: false, status: 'pending', adjustments: [] }, input.delta); } catch (e) { fail(e.message); }
+          request = draft.requests.filter(x => x.instanceId === instanceId && x.userId === actor.id && x.status === 'pending').sort((a,b) => a.createdAt-b.createdAt || a.sequence-b.sequence)[0];
+          if (!request) return { outcome: 'no_pending_request', requestId: null };
+          const adjustment = applyAdjustment(request, input.delta);
+          if (adjustment.applied) request.adjustments = adjustment.request.adjustments;
+          return { requestId: request.id, outcome: adjustment.applied ? 'adjusted' : adjustment.reason };
+        }
+        request = draft.requests.find(x => x.instanceId === instanceId && x.id === input.requestId);
+        if (!request) fail('Queue request not found for this target.', 404);
+        if (request.status !== 'pending') fail('Only pending requests can be changed.', 409);
+        if (input.operation === 'approve') request.approved = true;
+        else request.status = 'removed';
+        return { requestId: request.id, outcome: input.operation === 'approve' ? 'approved' : 'removed' };
+      });
+    },
+  };
+}

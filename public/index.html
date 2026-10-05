@@ -10,6 +10,8 @@
     <a href="#gallery" data-view="gallery"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Gallery<span id="nav-gallery-count" class="nav-count">0</span></a>
     <a href="#studio" data-view="studio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 3v8M16 13v8"/></svg>Prompt studio</a>
     <a href="#connections" data-view="connections"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 21h8M12 16v5"/></svg>Connections<span id="total" class="nav-count">0</span></a>
+    <a href="#queue" data-view="queue">Queue</a>
+    <a href="#queue-config" data-view="queue-config">Queue configuration</a>
   </nav>
   <div class="sidebar-note"><span class="review-dot"></span>Operator review<p>You decide what gets built.</p></div>
   <div class="aside-bottom"><span class="version">Studio preview <span>0.2</span></span><small>Rezzoloom · Built for Arena</small></div>
@@ -47,6 +49,27 @@
         <div class="review-column"><div class="review-header"><h2>Build review</h2><span>Manual approval</span></div><div id="review" aria-live="polite"></div><p class="review-note">Every attempt is saved to your local gallery, including incomplete builds.</p></div>
       </div>
     </div>
+  </section>
+  <section id="queue" class="view" aria-labelledby="queue-heading" hidden>
+    <div class="page-heading"><div><h1 id="queue-heading">Queue<span class="title-dot">.</span></h1><p>Review requests. Understand their priority.</p></div><button id="queue-refresh">Refresh queue</button></div>
+    <div class="target-bar"><label for="queue-target">Arena target</label><select id="queue-target"><option value="">Choose a connection</option></select><a href="#queue-config">Configure scoring ↗</a></div>
+    <p class="section-help">Local operator intake · Requests are saved, but automatic playback is not connected. Queue approval does not authorize an Arena build.</p>
+    <div class="queue-layout"><div><div class="section-bar"><h2>Pending requests</h2><span id="queue-summary">Choose a target</span></div><div id="queue-items"></div></div>
+    <div><form id="queue-add" class="queue-panel"><h2>Add a request</h2><p class="meta">Submitted as Local operator. Priority classes are manual operator assignments, not verified subscriptions.</p><label>Prompt<textarea name="prompt" rows="4" maxlength="2000" required></textarea></label><label>Priority class<select name="priority"><option value="standard">Standard</option><option value="tier1">Tier 1</option><option value="tier2">Tier 2</option><option value="tier3">Tier 3</option><option value="admin">Admin · 1000</option></select></label><button type="submit" class="primary">Add for review</button></form>
+    <form id="queue-adjust" class="queue-panel"><h2>Adjust next request</h2><p class="meta">Applies to your earliest pending request on this target. This is a manual adjustment, not a payment event.</p><label>Points to add or subtract<input name="delta" type="number" min="-1000000" max="1000000" step="0.000001" value="1" required></label><button type="submit">Apply adjustment</button></form></div></div>
+    <details class="limitations"><summary>Recent queue events</summary><ol id="queue-events"></ol></details>
+  </section>
+  <section id="queue-config" class="view" aria-labelledby="queue-config-heading" hidden>
+    <div class="page-heading"><div><h1 id="queue-config-heading">Queue configuration<span class="title-dot">.</span></h1><p>Set the rules for this Arena target.</p></div><a href="#queue">Back to queue ↗</a></div>
+    <p id="queue-config-target" class="target-context">Choose a target on the Queue page.</p>
+    <form id="queue-settings" class="queue-panel"><div class="studio-grid">
+    <label>Bulk penalty per earlier request<input name="bulkPenalty" type="number" min="0" max="100" step="0.000001" required></label>
+    <label>Aging points per interval<input name="agingPoints" type="number" min="0" max="100" step="0.000001" required></label>
+    <label>Aging interval (seconds)<input name="agingSeconds" type="number" min="0.001" step="0.001" required></label>
+    <label>Tier 1 starting points<input name="tier1" type="number" min="0" max="100" step="0.000001" required></label>
+    <label>Tier 2 starting points<input name="tier2" type="number" min="0" max="100" step="0.000001" required></label>
+    <label>Tier 3 starting points<input name="tier3" type="number" min="0" max="100" step="0.000001" required></label>
+    </div><p class="section-help">Aging and bulk changes recalculate existing pending scores. Tier starting points apply only to new requests. Admin priority stays 1000; ordinary scores stay between −100 and 100. All requests require manual approval.</p><div class="actions"><button type="submit" class="primary">Save queue settings</button><button type="button" id="queue-config-reload">Reload settings</button></div></form>
   </section>
 </main>
 <dialog id="add-dialog" aria-labelledby="dialog-title"><form id="add-form"><div class="dialog-top"><h2 id="dialog-title">Connect Arena</h2><button type="button" id="close-dialog" class="icon-button" aria-label="Close dialog">×</button></div><p>Enable Webserver &amp; REST API in Arena, then enter its address.</p><label>Connection name<input name="name" maxlength="80" required placeholder="Studio Arena" autocomplete="off"></label><label>Arena address<input name="endpoint" type="url" required value="http://127.0.0.1:8080" spellcheck="false"></label><p class="hint">Use a local or trusted-network endpoint. Secure remote pairing is in development.</p><p id="form-error" role="alert"></p><button type="submit" class="primary">Save connection</button></form></dialog>

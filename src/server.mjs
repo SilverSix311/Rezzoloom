@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { openQueue, LOCAL_OPERATOR } from './queue-store.mjs';
 import { openStore } from './store.mjs';
 import { openStudio, suggest } from './studio.mjs';
 import { AppError, inspectArena } from './arena.mjs';
@@ -21,6 +22,7 @@ async function body(req) {
 export async function createApp({ dataDir, probe = inspectArena, studioOptions } = {}) {
   const store = await openStore(dataDir);
   const studio = await openStudio(dataDir, studioOptions);
+  const queue = await openQueue(dataDir);
   const token = randomBytes(32).toString('hex');
   const statuses = new Map(); const busy = new Set();
   const server = createServer({ requestTimeout: 10_000, headersTimeout: 10_000 }, async (req, res) => {
@@ -47,6 +49,12 @@ export async function createApp({ dataDir, probe = inspectArena, studioOptions }
       if (req.method === 'GET' && path === '/api/instances') return send(200, store.list().map(item => ({ ...item, status: statuses.get(item.id) ?? { state: 'unchecked' } })));
       if (req.method === 'POST' && path === '/api/instances') return send(201, await store.add(await body(req)));
       if (req.method === 'GET' && path === '/api/gallery') return send(200, studio.list());
+      const queueMatch = path.match(/^\/api\/instances\/([a-f0-9-]+)\/queue$/);
+      if (queueMatch) {
+        const id = queueMatch[1]; store.get(id);
+        if (req.method === 'GET') return send(200, queue.snapshot(id));
+        if (req.method === 'POST') return send(200, await queue.command(id, await body(req), LOCAL_OPERATOR));
+      }
       const recipeMatch = path.match(/^\/api\/gallery\/([a-f0-9-]+)$/);
       if (req.method === 'GET' && recipeMatch) return send(200, studio.get(recipeMatch[1]));
       const studioMatch = path.match(/^\/api\/instances\/([a-f0-9-]+)\/(catalog|suggest|plan|execute)$/);

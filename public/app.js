@@ -18,7 +18,7 @@ document.querySelector('#add-form').onsubmit = async event => {
   finally { button.disabled = false; }
 };
 function action(label, run, cls) { const button = el('button', label, cls); button.onclick = async () => { button.disabled = true; notice.textContent = ''; try { await run(); } catch (error) { notice.textContent = error.message; } finally { button.disabled = false; } }; return button; }
-async function refresh() { instances = await api('/api/instances'); render(); }
+async function refresh() { instances = await api('/api/instances'); render(); syncQueueTargets(); }
 function render() {
   cards.replaceChildren(); document.querySelector('#total').textContent = instances.length;
   document.querySelector('#online').textContent = instances.filter(x => x.status.state === 'connected').length;
@@ -183,13 +183,13 @@ for (const button of document.querySelectorAll('[data-status]')) button.onclick 
 document.querySelector('#gallery-filter').oninput = renderGallery;
 document.querySelector('#gallery-sort').onchange = renderGallery;
 function showView(focus = false) {
-  const view = ['gallery', 'studio', 'connections'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'gallery';
+  const view = ['gallery', 'studio', 'connections', 'queue', 'queue-config'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'gallery';
   for (const section of document.querySelectorAll('.view')) section.hidden = section.id !== view;
   for (const link of document.querySelectorAll('[data-view]')) {
     const active = link.dataset.view === view; link.classList.toggle('active', active);
     if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   }
-  const title = { gallery: 'Gallery', studio: 'Prompt studio', connections: 'Connections' }[view];
+  const title = { gallery: 'Gallery', studio: 'Prompt studio', connections: 'Connections', queue: 'Queue', 'queue-config': 'Queue configuration' }[view];
   document.querySelector('#view-name').textContent = title; document.title = `Rezzo · ${title}`;
   if (focus) { const heading = document.querySelector(`#${view}-heading`); heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
 }
@@ -213,4 +213,91 @@ document.querySelector('#target-picker').onchange = () => {
 };
 document.querySelector('.skip-link').onclick = event => { event.preventDefault(); document.querySelector('#main').focus(); };
 window.addEventListener('hashchange', () => { showView(true); window.scrollTo(0, 0); });
+
+
+let queueSnapshot = null;
+let queueLoad = 0;
+let settingsRevision = null;
+const queueTarget = document.querySelector('#queue-target');
+function syncQueueTargets() {
+  const previous = queueTarget.value;
+  queueTarget.replaceChildren(option('', 'Choose a connection'), ...instances.map(x => option(x.id, x.name)));
+  queueTarget.value = instances.some(x => x.id === previous) ? previous : instances.length === 1 ? instances[0].id : '';
+  loadQueue().catch(error => { notice.textContent = error.message; });
+}
+function renderQueue() {
+  const items = document.querySelector('#queue-items');
+  const restoreFocus = items.contains(document.activeElement); items.replaceChildren();
+  if (restoreFocus) { const heading = document.querySelector('#queue-heading'); heading.tabIndex = -1; heading.focus({preventScroll:true}); }
+  for (const form of document.querySelectorAll('#queue-add, #queue-adjust, #queue-settings')) for (const field of form.elements) field.disabled = field.id === 'queue-config-reload' ? !queueTarget.value : !queueSnapshot;
+  document.querySelector('#queue-events').replaceChildren();
+  if (!queueSnapshot) { items.append(el('p', 'Choose a saved connection to manage its queue.', 'empty')); document.querySelector('#queue-summary').textContent = 'No target loaded'; return; }
+  const pending = queueSnapshot.requests.filter(x => x.status === 'pending');
+  const ranks = new Map(queueSnapshot.ranked.map((x,i) => [x.id, i + 1]));
+  pending.sort((a,b) => (ranks.get(a.id) ?? Infinity) - (ranks.get(b.id) ?? Infinity) || a.sequence-b.sequence);
+  document.querySelector('#queue-summary').textContent = `${pending.length} pending · ${queueSnapshot.ranked.length} approved · updated ${new Date(queueSnapshot.sampledAt).toLocaleTimeString()}`;
+  if (!pending.length) items.append(el('div', 'No pending requests. Add a prompt for operator review.', 'empty'));
+  for (const request of pending) {
+    const row = el('article', undefined, 'queue-row');
+    row.append(el('span', request.approved ? `#${ranks.get(request.id)} · Approved` : 'Awaiting review', 'meta'), el('h3', request.prompt), el('p', `Local operator · ${request.priority} · ${new Date(request.createdAt).toLocaleString()}`, 'meta'));
+    const score = request.ranking; const c = score.components;
+    row.append(el('strong', `${Number(score.score.toFixed(6))} points`, 'queue-score'), el('p', `Base ${c.base} + aging ${Number(c.aging.toFixed(6))} + adjustments ${c.adjustments} − bulk ${c.bulkPenalty}${request.admin ? ' · Admin fixed at 1000' : ''}`, 'meta'));
+    const actions = el('div', undefined, 'actions');
+    if (!request.approved) actions.append(action('Approve request', () => queueRequestCommand({ operation: 'approve', requestId: request.id })));
+    actions.append(action('Remove request', () => queueRequestCommand({ operation: 'remove', requestId: request.id })));
+    row.append(actions); items.append(row);
+  }
+  const events = document.querySelector('#queue-events'); events.replaceChildren();
+  for (const event of [...queueSnapshot.events].reverse()) events.append(el('li', `${new Date(event.at).toLocaleString()} · ${event.operation} · ${event.result.outcome}${event.result.requestId ? ` · ${event.result.requestId.slice(0,8)}` : ''}`));
+}
+function fillQueueSettings() {
+  const form = document.querySelector('#queue-settings');
+  document.querySelector('#queue-config-target').textContent = instances.find(x => x.id === queueTarget.value)?.name ?? 'Choose a target on the Queue page.';
+  settingsRevision = queueSnapshot?.revision ?? null;
+  if (!queueSnapshot) { form.reset(); return; }
+  const c = queueSnapshot.config;
+  for (const [name,value] of Object.entries({ bulkPenalty:c.bulkPenalty, agingPoints:c.agingPoints, agingSeconds:c.agingIntervalMs/1000, tier1:c.tierBases[0], tier2:c.tierBases[1], tier3:c.tierBases[2] })) form.elements.namedItem(name).value = value;
+}
+async function loadQueue(fillSettings = true) {
+  const generation = ++queueLoad; const target = queueTarget.value;
+  queueSnapshot = null; renderQueue();
+  if (!target) { fillQueueSettings(); return; }
+  const snapshot = await api(`/api/instances/${target}/queue`);
+  if (generation !== queueLoad || target !== queueTarget.value) return;
+  queueSnapshot = snapshot; renderQueue(); if (fillSettings) fillQueueSettings();
+}
+// A failed transport retry retains the same event ID and exact payload.
+let retryCommand = null;
+let queueBusy = false;
+async function queueCommand(command) {
+  if (queueBusy) throw new Error('Wait for the current queue change to finish.');
+  const target = queueTarget.value; if (!target) throw new Error('Choose a target first.');
+  const signature = JSON.stringify([target, command]);
+  const payload = retryCommand?.signature === signature ? retryCommand.payload : { ...command, eventId: crypto.randomUUID() };
+  retryCommand = { signature, payload };
+  queueBusy = true; queueTarget.disabled = true;
+  try {
+  const result = await api(`/api/instances/${target}/queue`, 'POST', payload);
+  retryCommand = null;
+  if (target === queueTarget.value) await loadQueue(command.operation === 'configure');
+  notice.textContent = `Queue: ${result.outcome.replaceAll('_', ' ')}. Arena output is unchanged.`;
+  } finally { queueBusy = false; queueTarget.disabled = false; }
+}
+async function queueRequestCommand(command) {
+  await queueCommand(command);
+  if (!document.querySelector('#queue').hidden) { const heading = document.querySelector('#queue-heading'); heading.tabIndex = -1; heading.focus({preventScroll:true}); }
+}
+function queueSubmit(id, command) {
+  document.querySelector(id).onsubmit = async event => {
+    event.preventDefault(); const form = event.currentTarget; const button = form.querySelector('[type=submit]'); button.disabled = true;
+    try { await queueCommand(command(new FormData(form))); if (id === '#queue-add') form.reset(); }
+    catch (error) { notice.textContent = error.message; }
+    finally { button.disabled = !queueSnapshot; if (!form.closest('.view').hidden && !button.disabled) button.focus(); }
+  };
+}
+queueSubmit('#queue-add', fields => ({ operation:'enqueue', prompt:fields.get('prompt'), priority:fields.get('priority') }));
+queueSubmit('#queue-adjust', fields => ({ operation:'adjustNext', delta:Number(fields.get('delta')) }));
+queueSubmit('#queue-settings', fields => ({ operation:'configure', revision:settingsRevision, config:{ bulkPenalty:Number(fields.get('bulkPenalty')), agingPoints:Number(fields.get('agingPoints')), agingIntervalMs:Math.round(Number(fields.get('agingSeconds'))*1000), tierBases:[1,2,3].map(x => Number(fields.get(`tier${x}`))) } }));
+queueTarget.onchange = () => loadQueue().catch(error => { notice.textContent = error.message; });
+for (const id of ['#queue-refresh', '#queue-config-reload']) document.querySelector(id).onclick = () => loadQueue().catch(error => { notice.textContent = error.message; });
 showView(); boot();

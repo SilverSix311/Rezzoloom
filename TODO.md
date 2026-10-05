@@ -6,8 +6,9 @@ Active implementation checklist. Keep completed items backed by code/tests; upda
 
 - [x] Implement and test the shared `!rezz` parser: command boundaries, quotes, Unicode and configurable length limits.
 - [x] Implement and test queue scoring: decimal aging, tier bases, dynamic bulk penalties, donation-protection exclusions, admin priority and FIFO ties.
-- [ ] Add persistent queue requests/events and verified identity/approval boundaries; deduplicate events before resolving their target.
-- [ ] Expose queue and score breakdowns in the operator UI with a Queue Configuration page.
+- [x] Persist local operator queue requests/events and approvals; deduplicate events before resolving their target.
+- [ ] Add verified external identity/payment adapters to queue intake (local operator only today).
+- [x] Expose queue and score breakdowns in the operator UI with a Queue Configuration page.
 - [ ] Connect reviewed plans to non-interrupting playback, configurable duration, pause/stop and restart reconciliation.
 
 ## AI and Arena control
@@ -71,4 +72,4 @@ Details: [portability](docs/PORTABILITY.md), [open decisions](docs/DECISIONS.md)
 
 UI refinement now provides distinct hash-routed views, local gallery status/search filters, a side-by-side desktop recipe review, responsive mobile navigation, self-hosted Manrope and reduced-motion support. Backend authorization and review controls remain intact. Impeccable was installed as a user skill; no paid Figma workflow or continuous design service was added. DESIGN.md records the system. Browser verification and final validation are recorded in the development guide.
 
-Parser and pure queue policy are implemented and tested, but persistence, verified event intake, configuration UI and playback wiring remain next. Laya/Jev contracts and grounded parameter planning remain outstanding. No complete AI, live queue, capture or community-login claims.
+Persistent local operator queue and event receipts now accompany the parser/scoring core. Queue and Configuration pages support approval/removal, manual next-request adjustments, tier starting values and aging/bulk settings. External verified identity/payment intake and playback wiring remain next. Laya/Jev contracts and grounded parameter planning remain outstanding. No complete AI, live queue, capture or community-login claims.

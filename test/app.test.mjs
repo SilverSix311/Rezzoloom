@@ -106,3 +106,21 @@ test('studio HTTP routes preserve approval, authentication, saved target and arc
   const entries = await request('/api/gallery').then(r => r.json()); assert.equal(entries.length, 1); assert.equal(entries[0].before, undefined);
   const archived = await request(`/api/gallery/${plan.id}`).then(r => r.json()); assert.ok(archived.before); assert.ok(archived.after);
 });
+
+test('queue HTTP intake binds local identity, rejects forged privileges and isolates targets', async t => {
+  const { base, request } = await fixture(t);
+  const a = await request('/api/instances','POST',{name:'Queue A',endpoint:'http://localhost:9501'}).then(r=>r.json());
+  const b = await request('/api/instances','POST',{name:'Queue B',endpoint:'http://localhost:9502'}).then(r=>r.json());
+  const route = `/api/instances/${a.id}/queue`;
+  assert.equal((await fetch(base+route)).status,401);
+  const input = {eventId:'one',operation:'enqueue',prompt:'Grid',priority:'standard'};
+  assert.equal((await request(route,'POST',{...input,userId:'admin',approved:true})).status,400);
+  const result = await request(route,'POST',input).then(r=>r.json());
+  assert.deepEqual(await request(route,'POST',input).then(r=>r.json()),result);
+  let state = await request(route).then(r=>r.json());
+  assert.equal(state.requests.length,1); assert.equal(state.requests[0].userId,'local:operator'); assert.equal(state.ranked.length,0);
+  assert.equal((await request(`/api/instances/${b.id}/queue`,'POST',{eventId:'cross',operation:'approve',requestId:result.requestId})).status,404);
+  await request(route,'POST',{eventId:'approve',operation:'approve',requestId:result.requestId});
+  state = await request(route).then(r=>r.json()); assert.equal(state.ranked.length,1);
+  assert.equal((await request(route,'POST',{eventId:'play',operation:'play',requestId:result.requestId})).status,400);
+});

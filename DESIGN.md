@@ -61,7 +61,7 @@ Self-hosted Manrope, weights 400, 600 and 800, carries the UI. The brand uses 80
 
 ## Layout
 
-Three hash-routed views: Gallery, Prompt studio and Connections. The desktop sidebar is 232px, reducing to 200px below 1100px. Below 700px it becomes a horizontal navigation bar. Content has a 1400px maximum width. Gallery recipes use divided rows rather than nested cards. The studio uses a flexible form with a 280px review column (350px on wide screens); below 1100px review follows the form. Controls stack below 700px.
+Five hash-routed views: Gallery, Prompt studio, Connections, Queue and Queue configuration. The desktop sidebar is 232px, reducing to 200px below 1100px. Below 700px navigation takes its own horizontally scrollable row beneath the brand. Content has a 1400px maximum width. Gallery recipes use divided rows rather than nested cards. The studio uses a flexible form with a 280px review column (350px on wide screens); below 1100px review follows the form. Controls stack below 700px. Queue uses a ranked list alongside intake/adjustment forms, with scoring settings on a separate page.
 
 ## Elevation & Depth
 

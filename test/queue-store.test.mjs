@@ -1,0 +1,54 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { openQueue, LOCAL_OPERATOR as actor } from '../src/queue-store.mjs';
+async function fixture(t) { const dir = await mkdtemp(join(tmpdir(), 'rezzo-queue-')); t.after(() => rm(dir, { recursive:true, force:true })); return dir; }
+const enqueue = (eventId, priority = 'standard') => ({ eventId, operation:'enqueue', prompt:'Neon lines', priority });
+test('queue commits concurrent requests, approvals, base snapshots and settings across restart', async t => {
+  const dir = await fixture(t); let now = 1000; let queue = await openQueue(dir, { now:() => now });
+  const [a,b] = await Promise.all([queue.command('A', enqueue('a'), actor), queue.command('A', enqueue('b'), actor)]);
+  assert.equal(queue.snapshot('A').ranked.length, 0);
+  await queue.command('A', { eventId:'approve', operation:'approve', requestId:a.requestId }, actor);
+  now += 60000;
+  assert.equal(queue.snapshot('A').ranked[0].score, 1);
+  assert.equal(queue.snapshot('A').requests[1].ranking.score, -9);
+  await queue.command('A', { eventId:'config', operation:'configure', revision:queue.snapshot('A').revision, config:{bulkPenalty:0.5,agingPoints:0.25,agingIntervalMs:1000,tierBases:[12.5,50,75]} }, actor);
+  await queue.command('A', enqueue('tier','tier1'), actor);
+  queue = await openQueue(dir, { now:() => now });
+  assert.equal(queue.snapshot('A').requests[2].baseScore, 12.5);
+  assert.equal(queue.snapshot('A').requests[0].baseScore, 0);
+  assert.equal(queue.snapshot('A').ranked[0].score, 15);
+  assert.equal(queue.snapshot('B').requests.length, 0);
+  await assert.rejects(queue.command('B', {eventId:'wrong',operation:'approve',requestId:b.requestId}, actor), /not found/);
+});
+test('dedup happens before next resolution and persists no-target and rejected adjustments', async t => {
+  const dir = await fixture(t); let q = await openQueue(dir);
+  const adjust = {eventId:'boost',operation:'adjustNext',delta:5};
+  const first = await q.command('A', enqueue('a'), actor);
+  const second = await q.command('A', enqueue('b'), actor);
+  await q.command('A', adjust, actor);
+  await q.command('A', {eventId:'remove',operation:'remove',requestId:first.requestId}, actor);
+  q = await openQueue(dir);
+  assert.equal((await q.command('A', adjust, actor)).requestId, first.requestId);
+  assert.equal(q.snapshot('A').requests.find(x => x.id === second.requestId).adjustments.length, 0);
+  await assert.rejects(q.command('B', adjust, actor), /different operation/);
+  const empty = {eventId:'empty',operation:'adjustNext',delta:2};
+  assert.equal((await q.command('B', empty, actor)).outcome, 'no_pending_request');
+  await q.command('B', enqueue('b2'), actor);
+  assert.equal((await q.command('B', empty, actor)).outcome, 'no_pending_request');
+});
+test('invalid identity, forged flags, stale settings and corrupt files fail closed', async t => {
+  const dir = await fixture(t); const q = await openQueue(dir);
+  assert.throws(() => q.command('A', enqueue('a'), {id:'twitch:1',role:'operator'}), /Verified/);
+  assert.throws(() => q.command('A', {...enqueue('a'),protected:true}, actor), /Unexpected/);
+  await q.command('A', enqueue('a'), actor);
+  await assert.rejects(q.command('A', {eventId:'c',operation:'configure',revision:0,config:q.snapshot('A').config}, actor), /Queue changed/);
+  await assert.rejects(q.command('A', {eventId:'bad',operation:'adjustNext',delta:NaN}, actor), /finite/);
+  const file = join(dir,'queue.json'); const original = await readFile(file,'utf8');
+  await writeFile(file,'{broken'); await assert.rejects(openQueue(dir), /preserve and repair/);
+  assert.equal(await readFile(file,'utf8'), '{broken');
+  const data = JSON.parse(original); data.requests[0].approved = 'true'; await writeFile(file,JSON.stringify(data));
+  await assert.rejects(openQueue(dir), /Invalid queue store/);
+});

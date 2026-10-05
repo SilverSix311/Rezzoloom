@@ -38,3 +38,7 @@ Admin controls for tier-to-base-score mappings (such as 25/50/75), decimal aging
 ## Gallery detail and account terms
 
 Offer authenticated downloads, five-second previews, remix actions with parent credit, prompt history and tags. Creators edit their tags, admins/mods edit any, and members suggest/vote on tag accuracy separately from composition upvotes. Signup clearly discloses training use and records accepted terms version; training export is not an ordinary gallery download.
+
+## Arena connection manager
+
+Add, pair, name, inspect and revoke multiple Arena targets. Show OS/version/capabilities and connectivity per target. Each live console and queue must clearly identify its destination; choose a target before submitting a gallery replay or manual request. Assign chat/show profiles to targets explicitly. Grouped or synchronized playback is not yet specified.

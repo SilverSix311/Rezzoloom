@@ -12,6 +12,10 @@ Rezzoloom will connect an AI model, an MCP control interface, a browser-based op
 
 The intended flow is: receive a request, interpret its visual intent, match it to available content and effects, validate a bounded plan, then apply it to Arena. The operator retains control of what chat can change.
 
+## Portable deployment — confirmed
+
+Rezzo must be portable/installable on **Windows, macOS, and Linux**, with support for **multiple existing Arena instances** across local, LAN, and remote connections. Both install profiles share this requirement. See [portability plan](docs/PORTABILITY.md) for packaging, target isolation, and compatibility validation.
+
 ## Requirements
 
 - A working, separately installed Resolume Arena installation with its built-in sources and effects.
@@ -24,6 +28,7 @@ Rezzoloom will control Arena; it will not replace its renderer or bundle Arena. 
 
 | Document | Purpose |
 | --- | --- |
+| [Portability](docs/PORTABILITY.md) | Windows/macOS/Linux packaging and multiple Arena targets |
 | [Queue policy](docs/QUEUE_POLICY.md) | Priority scores, aging, triggers, and donation protection |
 | [Training archive](docs/TRAINING_ARCHIVE.md) | Downloads, remix lineage, tags, and future training data |
 | [Gallery and installs](docs/GALLERY_AND_INSTALLS.md) | Shared/local galleries, animated previews, accounts, and SSO |

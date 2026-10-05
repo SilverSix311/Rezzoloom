@@ -37,6 +37,10 @@ Five-second animated previews, downloads, training-friendly archives with use cl
 
 User reports a working low-performance Arena installation on this Linux machine, available for functional testing. Version, runtime, API/MCP access, capture, and persistence are not yet verified; Windows/macOS portability remains to test. No application implementation has been authorized by the documentation consolidation request.
 
+## Confirmed: portable and multiple-instance operation — 2026-10-04
+
+Rezzo itself must run on Windows, macOS, and Linux as a portable/installable system. It must connect to multiple existing Arena instances regardless of whether they are local or remote. This settles host OS families and makes instance isolation/routing an architectural requirement. Exact platform versions, CPU architectures, formats and synchronization behavior remain open; see [portability plan](PORTABILITY.md).
+
 ## Remaining decisions
 
 Focus next on capability discovery and broad product questions, not another exhaustive queue walkthrough. Unresolved: Arena version/runtime, native export/replay/capture, remote connector, implementation stack, model budgets, concrete Full/Light boundaries, licensing, provider integration contracts, archive retention/deletion/backup, dataset format and supported training method, release phasing. Queue precision/clamping history, event-target ordering, membership changes, refund handling and shuffle eligibility need documented implementation choices later.

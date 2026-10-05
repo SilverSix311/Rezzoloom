@@ -55,3 +55,7 @@ The control path manipulates Arena state; video output stays in Arena's existing
 ## Gallery and event subsystems — proposal
 
 Separate score events and payment/identity verification from creative planning. A deterministic scheduler applies [queue policy](QUEUE_POLICY.md). Gallery metadata, capture jobs, downloads, remix ancestry, and versioned [training archives](TRAINING_ARCHIVE.md) share the core in both install profiles; community adds authentication and social actions. Preserve a small local installation without mandatory distributed services.
+
+## Cross-platform packaging and target isolation
+
+Windows, macOS, and Linux Rezzo hosts and multiple Arena instances are confirmed requirements. The diagram above represents one target pipeline; instantiate isolated state, queue, executor, and connector contexts per target. Every command/plan carries its target identity. See [portability design](PORTABILITY.md) for install/portable packaging, routing, credentials, data migration and proposed remote connectors. A single-target prototype is an incremental test, not the final architecture.

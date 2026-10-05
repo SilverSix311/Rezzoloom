@@ -17,6 +17,10 @@
 - MVP model support: both local Laya and hosted Jev by TypeSafe AI (confirmed 2026-10-01).
 - Repository visibility: public (user selected option 2).
 
+## Portable deployment — confirmed
+
+Rezzo must be portable/installable on **Windows, macOS, and Linux**, with support for **multiple existing Arena instances** across local, LAN, and remote connections. Both install profiles share this requirement. See [portability plan](PORTABILITY.md) for packaging, target isolation, and compatibility validation.
+
 ## Proposed first experience
 
 1. Operator connects to Arena and checks the detected composition and capabilities.

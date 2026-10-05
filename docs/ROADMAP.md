@@ -58,6 +58,16 @@ Parser cases and schema/policy rejection tests; contract tests against a fake ad
 - [ ] Implement/validate dynamic bulk penalties, decimal/time-configurable aging, extensible triggers, and verified donation protection under [queue policy](QUEUE_POLICY.md).
 - [ ] Archive every entry with schema versions, lineage, truthful download format, and terms provenance; validate tag voting and credited remix behavior under [training archive](TRAINING_ARCHIVE.md).
 
+## Portability workstream — confirmed scope
+
+- [ ] Select installer and portable packages for Windows/macOS/Linux; define tested versions/architectures.
+- [ ] Model explicit instance IDs throughout commands, approvals, queues and capture attribution.
+- [ ] Validate two simulated targets with isolated scheduling, failures and state.
+- [ ] Verify cross-host connections, separate connector packaging, authenticated pairing/revocation and data migration.
+- [ ] Validate clean install, portable launch, upgrade/backup/restore and uninstall behavior.
+
+See [portability requirements](PORTABILITY.md). Single-target early milestones do not defer target identity/isolation architecture.
+
 ## Current handoff — 2026-10-04
 
 Objective: consolidate confirmed decisions and publish planning docs before implementation. Linux Arena is user-reported working, not yet tool-verified; low performance is acceptable for functional tests. Next: inspect version/runtime/capabilities, then use a disposable composition for small integration checks. Capture/export fidelity and vendor MCP support are unresolved; do not infer them from Arena launching. Keep tests sequential/lightweight on this laptop; no training workloads or background workers during planning.

@@ -16,7 +16,7 @@ Accept `!rezz <prompt>` only at the start of a trimmed message, with a command b
 | `!rezz` | Reject empty prompt |
 | `!rezz "blue` | Reject malformed quoting |
 
-Tentative defaults for discussion: 500 Unicode code points per prompt, 30-second per-user cooldown, 10-second channel cooldown, 20 pending requests, and 60-second request expiry. These are tunable product choices, not platform limits. Prefer rejecting overflow over silently dropping accepted work. Final values require a live-show trial.
+Tentative defaults for discussion: 500 Unicode code points per prompt, 30-second per-user cooldown, 10-second channel cooldown, and 20 pending requests. Queue expiry remains undecided and must accommodate 60-second playback slots; plan expiry is separate from request waiting time. These are tunable product choices, not platform limits. Prefer rejecting overflow over silently dropping accepted work. Final values require a live-show trial.
 
 ## Normalized chat event
 
@@ -28,7 +28,7 @@ The intake response returns a request ID and disposition: accepted, duplicate, i
 
 `received → queued → planning → awaiting_review → executing → applied`
 
-Bounded auto mode skips `awaiting_review`. Additional terminal states: rejected, expired, cancelled, failed, partially_applied. On restart or an uncertain write, reconcile observed state and require operator attention before replay. Capture timestamps and structured reason codes at each step.
+Bounded auto mode and verified trusted-member approval skip `awaiting_review`. An approved plan waits for its playback turn before execution; revalidate against current state and replan/reapprove as needed. Additional terminal states: rejected, expired, cancelled, failed, partially_applied. On restart or an uncertain write, reconcile observed state and require operator attention before replay. Capture timestamps and structured reason codes at each step.
 
 ## Structured plan
 
@@ -46,7 +46,7 @@ Include request ID, plan ID, composition identity, observed state revision, expi
 | `POST /api/v1/requests` | Manual prompt | Operator |
 | `GET /api/v1/requests/:id` | Request outcome | Authorized requester/operator |
 | `POST /api/v1/plans/:id/approve` | Approve the exact plan | Operator |
-| `POST /api/v1/requests/:id/cancel` | Cancel pending work | Operator |
+| `POST /api/v1/requests/:id/cancel` | Remove pending work; users cannot cancel | Admin/moderator |
 | `POST /api/v1/control/pause` | Stop admission/execution as defined by policy | Operator |
 | `POST /api/v1/control/resume` | Explicitly resume | Operator |
 | `POST /api/v1/control/restore-baseline` | Request a validated recovery plan | Operator |
@@ -57,3 +57,7 @@ Require scoped credentials, size limits, replay protection, idempotency keys for
 ## Platform order
 
 Twitch first: evaluate EventSub chat-message events and reconnect/redelivery behavior against current official docs. Prefer a local-friendly transport if supported by the chosen authorization flow. YouTube and Kick get the same normalized contract, but their current event delivery, OAuth, verification, quotas, and app-review requirements must be researched before scheduling implementation. Do not promise equal platform capabilities.
+
+## Confirmed playback scheduling
+
+See [queue policy](QUEUE_POLICY.md). Approved requests do not interrupt the current 60-second (admin-configurable) slot. Admin score is 1000; other scores are -100..100 with configurable tier starting scores, aging, bulk penalties, and trigger adjustments. The earlier strict subscriber-class ordering is superseded. Community member submission requires a signed-in Rezzo identity linked to verified chat identity; exact bot/account onboarding is still to be designed. Gallery votes affect ranking/shuffle, not request scores. Trigger/payment ingestion endpoints and provider verification contracts remain to be specified.

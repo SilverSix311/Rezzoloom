@@ -19,6 +19,13 @@ Do not equate a Rezzoloom “show profile” or “recipe” with a native Arena
 
 Confirm exact scopes, transport, reconnect behavior, rate limits, and bot identity during the integration spike. Platform rules are external constraints, distinct from Rezzoloom's own request cooldowns.
 
+## Decision models
+
+- [Laya upstream repository](https://github.com/NandhaKishorM/laya): local model with typed choice, score, and yes/no decisions.
+- [TypeSafe AI introduction to Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev): hosted model for structured decisions.
+
+Both are selected for MVP support. Rezzoloom-specific accuracy, integration behavior, and performance have not been tested. Selection does not establish interchangeable capabilities or authorize automatic cloud fallback.
+
 ## Unresearched / unproven
 
-YouTube and Kick delivery/auth details, supported model/provider, official MCP live latency, reliable recovery coverage, program-output preview, packaging, and the minimum supported Arena version for the chosen transport. These must not be advertised as completed integrations.
+YouTube and Kick delivery/auth details, Laya/Jev integration compatibility, official MCP live latency, reliable recovery coverage, program-output preview, packaging, and the minimum supported Arena version for the chosen transport. These must not be advertised as completed integrations.

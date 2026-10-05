@@ -4,8 +4,8 @@ The audience supplies creative intent. The operator defines authority. Model ins
 
 ## Defaults to validate
 
-- Begin in review mode; automatically execute only inside an explicit show profile.
-- Allow only selected targets and typed operations. Protect master/output settings, unrelated layers, filesystem paths, and application settings.
+- Support review, admin-enabled auto approval, and trusted-member auto approval. Initial default remains proposed as review; all paths share validation.
+- Separate Full and Light creative scope from approval. Full may rebuild the whole composition. Light limits selected targets and intensity. Define exact allowed operations per mode; neither grants filesystem, credential, or application-administration authority.
 - Permit approved local assets only; chat cannot load arbitrary files or URLs.
 - Bound effect intensity, transition speed, action count, and execution time. Exclude rapid flashing/strobe recipes by default; parameter limits do not certify rendered imagery as safe.
 - Apply moderation, role policy, cooldowns, queue capacity, and model-cost limits before expensive planning.
@@ -34,3 +34,7 @@ Manual takeover pauses automation. Detect relevant external changes and invalida
 ## Data and exposure
 
 Keep tokens and keys out of Git and chat output. Record action metadata and redacted diagnostics; choose prompt retention and deletion settings before release. Explain which prompt/catalog data reaches a hosted model. Do not expose Arena's webserver directly to the public Internet. Remote operator access needs a deliberate authentication and transport design.
+
+## Full-mode replacement and gallery reuse
+
+Replacement needs a recoverable previous-state strategy and explicit handling of unsupported restoration, pending an Arena capability test. A saved gallery entry does not bypass current policy; revalidate against the destination composition and capabilities before execution. Approval binds to the exact plan and mode. Trusted status must derive from verified identities, not matching display names.

@@ -61,7 +61,7 @@ Self-hosted Manrope, weights 400, 600 and 800, carries the UI. The brand uses 80
 
 ## Layout
 
-Six hash-routed views: Gallery, Prompt studio, Connections, Queue, Queue configuration and Configuration. The desktop sidebar is 232px, reducing to 200px below 1100px. Below 700px navigation takes its own horizontally scrollable row beneath the brand. Content has a 1400px maximum width. Gallery recipes use divided rows rather than nested cards. The studio uses a flexible form with a 280px review column (350px on wide screens); below 1100px review follows the form. Controls stack below 700px. Queue uses a ranked list alongside intake/adjustment forms, with scoring settings on a separate page. Configuration pairs Twitch settings with authorization/listener status in two columns, stacking below 900px.
+Six hash-routed views: Gallery, Prompt studio, Connections, Queue, Queue configuration and Configuration. The desktop sidebar is 232px, reducing to 200px below 1100px. Below 700px navigation takes its own horizontally scrollable row beneath the brand. Content has a 1400px maximum width. Gallery recipes use divided rows rather than nested cards. The studio uses a flexible form with a 280px review column (350px on wide screens); below 1100px review follows the form. Controls stack below 700px. Queue uses a ranked list alongside intake/adjustment forms, with scoring settings on a separate page. Configuration includes a provider settings form using the existing studio field grid, followed by Twitch settings paired with authorization/listener status in two columns, stacking below 900px.
 
 ## Elevation & Depth
 
@@ -83,3 +83,7 @@ Controls use 7px corners; panels and recipe placeholders use 12px. The mark and 
 ## Do's and Don'ts
 
 Keep primary tasks prominent, target context visible and unsupported functionality honest. Respect reduced motion. Use SVG icons consistently. Do not add continuous canvas animation, external font requests, fake queue controls, or a pretend live monitor to create visual polish. Preserve keyboard navigation, focus outlines and mobile access to every actual feature.
+
+## Model settings extension
+
+The provider form reuses existing panels, field grid, buttons and tokens. Cloud sharing is an explicit labeled checkbox; session-key status never displays the key. Studio recommendations distinguish model choices, uncertain/no-match results and unsupported parameter work before the operator applies a suggestion. No new visual tokens or motion were introduced. Browser verification of this extension is pending due to a tool policy block.

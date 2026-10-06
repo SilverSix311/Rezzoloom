@@ -12,7 +12,7 @@ The service binds only to loopback. It is a trusted local operator console, not 
 
 1. Save an Arena connection with its Webserver & REST API enabled.
 2. Open **Prompt studio** on that connection. Rezzo reads product/composition, video sources and effects from that target. Capture devices are excluded from the source selector.
-3. Enter a prompt. **Find catalog matches** uses literal keyword ranking over live names/descriptions. It is not Laya/Jev or semantic AI and does not set colors or animation parameters.
+3. Enter a prompt. **Find matches** uses literal keyword ranking over live names/descriptions. The separate **Ask model** action uses the configured Laya/Jev adapter for catalog choices. Neither path currently sets colors or animation parameters; see [model setup](MODELS.md).
 4. Choose a source, an empty clip slot and effects. Light permits one effect; Full permits four. Both currently create one clip with Arena defaults. These counts are preliminary limits, not the complete planned Light/Full policies or a photosensitivity guarantee.
 5. Preview the recipe, then explicitly approve its build. The server binds the plan to its target, composition structure/deck and empty clip ID. Plans expire after ten minutes. It rechecks live state before writing and serializes requests per instance.
 6. The build loads the source and adds effects via verified REST operations. Readback checks source description and effect names. The clip remains stopped; trigger it in Arena yourself. No playback, global mix or existing content is deliberately changed.
@@ -33,7 +33,9 @@ All endpoints except `/api/session` require the local bearer session and browser
 | POST `/api/instances/:id/inspect` or `/snapshot` | Read summary or diagnostic state |
 | POST `/api/instances/:id/catalog` | Read current sources/effects/empty slots |
 | POST `/api/instances/:id/suggest` | Keyword matches for `{prompt}` |
-| POST `/api/instances/:id/plan` | Persist `{prompt,mode,sourceId,clipId,effectIds}` as reviewed candidate |
+| GET/POST `/api/models` | Read/save provider settings; keys accepted only for the current process session |
+| POST `/api/instances/:id/recommend` | One bounded Laya/Jev catalog decision for `{prompt,mode}` |
+| POST `/api/instances/:id/plan` | Persist `{prompt,mode,sourceId,clipId,effectIds,recommendationId?}` as reviewed candidate |
 | POST `/api/instances/:id/execute` | Execute `{planId,approved:true}` once after revalidation |
 | GET `/api/gallery` or `/api/gallery/:id` | List recipe metadata or read full record |
 
@@ -100,3 +102,7 @@ Official reference checked 2026-10-05: [Resolume REST OpenAPI](https://resolume.
 ## Twitch configuration — 2026-10-05
 
 See [Twitch setup and limits](TWITCH.md). Public configuration is saved to `twitch.json`; device/access tokens remain only in process memory. No Twitch credentials were supplied for this milestone. Forty automated tests pass, including OAuth rejection/polling, transport handoff/revocation, identity binding, restart deduplication, intake limits and authenticated HTTP configuration. Browser checks covered desktop/mobile Configuration, disabled controls and required fields; no real consent or chat delivery is claimed. Existing development Arena clips were not changed by this milestone. Queue refresh now continues while paused so incoming prompts appear for operator review.
+
+## Model decisions — 2026-10-05
+
+[Provider setup](MODELS.md) describes the implemented Laya/Jev settings, single-call source/effect recommendations, server-resolved decision provenance and persistent daily request cap. Forty-eight automated tests pass. Live provider calls, rendered visual quality and browser interaction checks remain unverified; the browser tool blocked local page access. No model weights, new runtime dependencies, paid requests or Arena writes were introduced during this milestone. Colors, motion and multi-effect interpretation remain future work.

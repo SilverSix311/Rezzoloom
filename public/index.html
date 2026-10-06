@@ -42,7 +42,7 @@
       <div class="studio-layout">
         <form id="studio-form">
           <label class="prompt-label" for="prompt">What do you have in mind?</label><textarea id="prompt" name="prompt" rows="5" maxlength="2000" required placeholder="Neon lines, a purple haze, and ghosting…"></textarea>
-          <div class="prompt-tools"><span class="meta">Catalog keyword matching · AI planning coming later</span><button id="suggest" type="button">Find matches</button></div><div id="suggestions" class="suggestions"></div>
+          <div class="prompt-tools"><span class="meta">AI suggestions require a configured provider.</span><button id="recommend" type="button">Ask model</button><button id="suggest" type="button">Find matches</button></div><div id="suggestions" class="suggestions"></div>
           <div class="recipe-fields"><h2>Build your recipe</h2><div class="studio-grid"><label>Built-in source<select id="source" required></select></label><label>Empty clip slot<select id="slot" required></select></label><label>Control mode<select name="mode"><option value="light">Light · one effect</option><option value="full">Full · up to four effects</option></select></label><label>Effect chain<select id="effects" multiple size="6"></select><small>Ctrl/⌘ click to select multiple. Effects use catalog order.</small></label></div></div>
           <details class="limitations"><summary>Current build limits</summary><p>Both modes build one clip with Arena’s default parameters. Light limits effect count; it does not guarantee photosensitivity or GPU safety. Playback remains under your control in Arena.</p></details>
           <button type="submit" class="primary preview-button">Review recipe <span aria-hidden="true">→</span></button>
@@ -62,6 +62,22 @@
   </section>
   <section id="configuration" class="view" aria-labelledby="configuration-heading" hidden>
     <div class="page-heading"><div><h1 id="configuration-heading">Configuration<span class="title-dot">.</span></h1><p>Bring your audience into the creative process.</p></div><a href="#queue">Open queue ↗</a></div>
+    <form id="models-form" class="queue-panel model-settings"><h2>Visual decision model</h2><p class="meta">Suggest one source and one optional effect from the loaded Arena catalog. You review the choices before building.</p>
+      <div class="studio-grid">
+        <label>Provider<select name="provider"><option value="disabled">Disabled · manual selection</option><option value="laya">Laya · your server</option><option value="jev">Jev · TypeSafe cloud</option></select></label>
+        <label>Minimum reported confidence<input name="threshold" type="number" min="0" max="1" step="0.01" required value="0.6"></label>
+        <label>Laya server origin<input name="layaEndpoint" type="url" required value="http://127.0.0.1:8000" spellcheck="false"></label>
+        <label>Laya checkpoint<select name="layaModel"><option value="english">English</option><option value="multilingual">Multilingual</option><option value="typed-decisions">Typed decisions</option></select></label>
+        <label>Jev model<input name="jevModel" required value="jev-latest" maxlength="64" spellcheck="false"></label>
+        <label>Session API key<input name="apiKey" type="password" autocomplete="new-password" maxlength="512" placeholder="Leave blank to keep the current key"></label>
+        <label>Maximum requests per UTC day<input name="dailyLimit" type="number" min="1" max="1000" step="1" required value="20"></label>
+        <label>Request timeout (seconds)<input name="timeoutSeconds" type="number" min="5" max="120" step="1" required value="30"></label>
+      </div>
+      <label class="model-consent"><input name="cloudEnabled" type="checkbox"> Allow prompts and catalog names/descriptions to be sent to TypeSafe when using Jev.</label>
+      <p class="meta">Laya uses your existing server; Rezzo does not download models. Keys stay in memory and must be re-entered after restart. One provider call per suggestion, no automatic retry or fallback. Failed calls count toward the daily limit; this is a request cap, not a dollar budget.</p>
+      <p id="models-status" role="status">Loading model configuration…</p><p id="models-error" class="error" role="alert"></p>
+      <div class="actions"><button type="submit" class="primary" disabled>Save model settings</button><button type="button" id="models-forget" disabled>Forget session key</button></div>
+    </form>
     <div class="twitch-layout">
       <form id="twitch-form" class="queue-panel"><h2>Twitch chat</h2><p class="meta">Connect one channel to an Arena target. Save your settings, authorize on Twitch, then start listening.</p>
         <label>Public Client ID<input name="clientId" required pattern="[a-zA-Z0-9]{10,100}" maxlength="100" autocomplete="off" spellcheck="false"></label>

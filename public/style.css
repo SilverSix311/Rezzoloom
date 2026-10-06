@@ -25,3 +25,8 @@
 #twitch-consent { margin:24px 0; padding:16px; background:var(--raised); border-radius:12px; overflow-wrap:anywhere; }
 #twitch-error:empty { display:none; }
 @media(max-width:900px) { .twitch-layout { grid-template-columns:minmax(0, 1fr); } }
+
+.model-settings { max-width:1100px; margin-bottom:40px; }
+.model-settings .model-consent { display:flex; flex-direction:row; align-items:start; gap:12px; margin:24px 0 12px; }
+.model-settings .model-consent input { padding:0; width:18px; min-width:18px; height:18px; margin-top:3px; accent-color:var(--accent); }
+#models-error:empty { display:none; }

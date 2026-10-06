@@ -50,10 +50,11 @@ export async function openStudio(directory, { discover = catalog, inspect = insp
   function get(id) { const entry = entries.get(id); if (!entry) throw new AppError('Recipe not found.', 404); return structuredClone(entry); }
   return {
     list: () => [...entries.values()].map(({ before, after, ...entry }) => structuredClone(entry)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)), get, discover,
-    async plan(instance, input) {
+    async plan(instance, input, decision) {
       if (typeof input?.prompt !== 'string' || !input.prompt.trim() || input.prompt.length > 2000) throw new AppError('A prompt of 1–2000 characters is required.');
       if (!['light', 'full'].includes(input.mode)) throw new AppError('Choose Light or Full mode.');
       const available = await discover(instance.endpoint);
+      if (decision && (decision.compositionKey !== available.compositionKey || decision.catalogHash !== hash({sources:available.sources,effects:available.effects}))) throw new AppError('Arena catalog changed after the model decision. Request a fresh suggestion.',409);
       const source = available.sources.find(x => x.id === input.sourceId);
       const slot = available.slots.find(x => x.id === input.clipId);
       const limit = input.mode === 'light' ? 1 : 4;
@@ -62,7 +63,7 @@ export async function openStudio(directory, { discover = catalog, inspect = insp
       const effects = input.effectIds.map(id => available.effects.find(x => x.id === id));
       if (effects.some(x => !x)) throw new AppError('An effect is no longer available.', 409);
       const id = randomUUID();
-      return save({ schemaVersion: 1, kind: 'rezzo-recipe', id, filename: `Operator.${id.slice(0, 8)}.rezzo.json`, creator: 'Operator', prompt: input.prompt.trim(), mode: input.mode, planner: 'operator-catalog-v1', instance, compositionKey: available.compositionKey, compositionName: available.compositionName, slot, source, effects, status: 'planned', createdAt: new Date(now()).toISOString(), expiresAt: new Date(now() + 600000).toISOString(), replayable: false, steps: [] });
+      return save({ schemaVersion: 1, kind: 'rezzo-recipe', id, filename: `Operator.${id.slice(0, 8)}.rezzo.json`, creator: 'Operator', prompt: input.prompt.trim(), mode: input.mode, planner: decision ? 'model-catalog-v1' : 'operator-catalog-v1', ...(decision ? {decision} : {}), instance, compositionKey: available.compositionKey, compositionName: available.compositionName, slot, source, effects, status: 'planned', createdAt: new Date(now()).toISOString(), expiresAt: new Date(now() + 600000).toISOString(), replayable: false, steps: [] });
     },
     async execute(id, instance, approved) {
       const entry = get(id);

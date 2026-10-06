@@ -10,7 +10,7 @@ Exit: documented compatibility, controllable targets and recovery limits. Remain
 
 ## 1 — Local operator prototype
 
-Connection setup, catalog discovery, operator-selected plans, validation/review, serialized clip construction and local recipe archive are implemented. Keyword matching is not semantic AI. Persistent queue intake, recipe attachment and approved timed playback now accompany the tested command parser and scoring policy.
+Connection setup, catalog discovery, operator-selected plans, validation/review, serialized clip construction and local recipe archive are implemented. Keyword matching remains separate from the new configurable Laya/Jev catalog recommendations; their HTTP adapters are offline-tested, with live quality still unverified. Persistent queue intake, recipe attachment and approved timed playback now accompany the tested command parser and scoring policy.
 
 Exit: the sample prompt creates a look from available built-ins; invalid/stale plans cause no writes; partial failures remain visible; the operator can pause and take over. Next work includes real provider decisions, color/motion plans and controlled playback.
 

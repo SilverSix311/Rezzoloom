@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { openModels } from './models.mjs';
 import { openTwitch } from './twitch.mjs';
 import { openPlayback } from './playback.mjs';
 import { openQueue, LOCAL_OPERATOR } from './queue-store.mjs';
@@ -21,11 +22,12 @@ async function body(req) {
   for await (const chunk of req) { size += chunk.length; if (size > 16_384) throw new AppError('Request too large.', 413); parts.push(chunk); }
   try { return JSON.parse(Buffer.concat(parts).toString('utf8')); } catch { throw new AppError('Invalid JSON.'); }
 }
-export async function createApp({ dataDir, probe = inspectArena, studioOptions, playbackOptions, twitchOptions } = {}) {
+export async function createApp({ dataDir, probe = inspectArena, studioOptions, playbackOptions, twitchOptions, modelOptions } = {}) {
   const store = await openStore(dataDir);
   const studio = await openStudio(dataDir, studioOptions);
   const queue = await openQueue(dataDir, { resolveRecipe: id => studio.get(id) });
   const twitch = await openTwitch(dataDir, {queue,store,...twitchOptions});
+  const models = await openModels(dataDir,modelOptions);
   const token = randomBytes(32).toString('hex');
   const statuses = new Map(); const busy = new Set();
   const playback = await openPlayback({ queue, store, studio, busy, ...playbackOptions });
@@ -50,6 +52,8 @@ export async function createApp({ dataDir, probe = inspectArena, studioOptions, 
       }
       if (req.method === 'GET' && path === '/api/session') return send(200, { token, mode: 'local', version: '0.2.0' });
       if (req.headers.authorization !== `Bearer ${token}`) throw new AppError('Local session required. Reload the console.', 401);
+      if (req.method === 'GET' && path === '/api/models') return send(200,models.status());
+      if (req.method === 'POST' && path === '/api/models') return send(200,await models.configure(await body(req)));
       if (req.method === 'GET' && path === '/api/twitch') return send(200, twitch.status());
       if (req.method === 'POST' && path === '/api/twitch') {
         const input = await body(req);
@@ -73,10 +77,19 @@ export async function createApp({ dataDir, probe = inspectArena, studioOptions, 
       }
       const recipeMatch = path.match(/^\/api\/gallery\/([a-f0-9-]+)$/);
       if (req.method === 'GET' && recipeMatch) return send(200, studio.get(recipeMatch[1]));
-      const studioMatch = path.match(/^\/api\/instances\/([a-f0-9-]+)\/(catalog|suggest|plan|execute)$/);
+      const studioMatch = path.match(/^\/api\/instances\/([a-f0-9-]+)\/(catalog|suggest|recommend|plan|execute)$/);
       if (studioMatch && req.method === 'POST') {
         const [, id, action] = studioMatch;
         const item = store.get(id);
+        if (action === 'recommend') {
+          const input = await body(req);
+          if (busy.has(id) || busy.size >= 4) throw new AppError('This connection is busy. Try again shortly.',409);
+          let available;
+          busy.add(id);
+          try { available = await studio.discover(item.endpoint); } finally { busy.delete(id); }
+          // Inference must not hold the Arena lock or delay a playing clip's timed stop.
+          return send(200,await models.recommend(item,available,input));
+        }
         if (busy.has(id) || busy.size >= 4) throw new AppError('This connection is busy. Try again shortly.', 409);
         busy.add(id);
         try {
@@ -87,7 +100,7 @@ export async function createApp({ dataDir, probe = inspectArena, studioOptions, 
             const available = await studio.discover(item.endpoint);
             return send(200, { planner: 'catalog-keyword-matcher', sources: suggest(input.prompt, available.sources), effects: suggest(input.prompt, available.effects) });
           }
-          if (action === 'plan') return send(201, await studio.plan(item, input));
+          if (action === 'plan') return send(201, await studio.plan(item, input, input?.recommendationId ? models.provenance(input.recommendationId,item,input) : undefined));
           return send(200, await studio.execute(input?.planId, item, input?.approved));
         } finally { busy.delete(id); }
       }

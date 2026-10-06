@@ -2,7 +2,7 @@
 
 Rezzoloom (**Rezzo** for short). Turn audience prompts into controlled changes to a live Resolume Arena composition.
 
-**Status: studio preview (0.2.0).** The local console discovers Arena sources/effects, builds operator-reviewed clips in empty slots, and archives prompts/recipes/results in a searchable local gallery. The local queue can schedule approved built clips with duration, pause/stop and restart recovery. Configuration now supports public-client Twitch authorization and reviewed `!rezz` intake; live Twitch verification is pending. Keyword suggestions are available; AI providers, community accounts, animated previews and bundled installers remain in development.
+**Status: studio preview (0.2.0).** The local console discovers Arena sources/effects, builds operator-reviewed clips in empty slots, and archives prompts/recipes/results in a searchable local gallery. The local queue can schedule approved built clips with duration, pause/stop and restart recovery. Configuration now supports public-client Twitch authorization and reviewed `!rezz` intake; live Twitch verification is pending. Configurable Laya/Jev catalog recommendations are implemented and offline-tested; live model validation is pending. Color/motion planning, community accounts, animated previews and bundled installers remain in development.
 
 Rezzoloom will connect an AI model, an MCP control interface, a browser-based operator console, and chat adapters. Twitch is the first target; YouTube, Kick, and other bots should be able to use a shared API later.
 
@@ -26,7 +26,7 @@ With Node.js 24+ installed, run `npm ci`, then `npm start` and open http://127.0
 - A supported connection from Rezzoloom to the Arena machine; local, LAN, and remote connections are required; minimum Arena version remains undecided.
 - Chat-platform authorization and a model connection, to be defined before implementation.
 
-Rezzoloom will control Arena; it will not replace its renderer or bundle Arena. The creative focus is composing and animating Arena’s built-in elements from chat prompts. External AI image/video generation is outside the initial scope. The MVP will support both [Laya](https://github.com/NandhaKishorM/laya) for local decisions and [Jev by TypeSafe AI](https://typesafe.ai/blog/introducing-system-one-models-and-jev) for hosted decisions. Integration compatibility remains to be tested.
+Rezzoloom will control Arena; it will not replace its renderer or bundle Arena. The creative focus is composing and animating Arena’s built-in elements from chat prompts. External AI image/video generation is outside the initial scope. The MVP will support both [Laya](https://github.com/NandhaKishorM/laya) for local decisions and [Jev by TypeSafe AI](https://typesafe.ai/blog/introducing-system-one-models-and-jev) for hosted decisions. HTTP adapters and operator settings are implemented; live integration quality remains to be tested. See [model setup](docs/MODELS.md).
 
 ## Planning map
 

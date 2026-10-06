@@ -29,3 +29,7 @@ Both are selected for MVP support. Rezzoloom-specific accuracy, integration beha
 ## Unresearched / unproven
 
 YouTube and Kick delivery/auth details, Laya/Jev integration compatibility, official MCP live latency, reliable recovery coverage, program-output preview, packaging, and the minimum supported Arena version for the chosen transport. These must not be advertised as completed integrations.
+
+## Decision adapter follow-up — 2026-10-05
+
+Laya and Jev HTTP choice contracts are now implemented and offline-tested; see [provider evidence and limits](MODELS.md). Both select from supplied criteria and return structured decisions. Full prompt-to-composition planning and live inference quality remain unverified.

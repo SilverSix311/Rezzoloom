@@ -50,7 +50,9 @@ test('verified chat enters held queue, excludes shared chat and wrong subscripti
   const ws = f.sockets[0]; ws.sendPacket(f.event()); ws.sendPacket(f.event());
   ws.sendPacket(f.event('shared',{source_broadcaster_user_id:'999'}));
   const bad = f.event('wrong'); bad.payload.subscription.id='other'; ws.sendPacket(bad);
-  await flush(); const requests = f.queue.snapshot(target).requests; assert.equal(requests.length,1);
+  const deadline = Date.now() + 2000;
+  while (f.queue.snapshot(target).requests.length === 0 && Date.now() < deadline) await flush();
+  const requests = f.queue.snapshot(target).requests; assert.equal(requests.length,1);
   assert.equal(requests[0].userId,'twitch:789'); assert.equal(requests[0].approved,false); assert.equal(requests[0].baseScore,0);
   assert.equal(f.queue.snapshot(target).ranked.length,0);
   const reopened = await openQueue(f.dir);

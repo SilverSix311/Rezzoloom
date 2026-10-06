@@ -4,10 +4,12 @@ Active implementation checklist. Keep completed items backed by code/tests; upda
 
 ## Current work
 
+Current objective: validate the new Laya/Jev decision flow live, then add discovered color/motion parameters. Provider adapters, settings, bounded catalog recommendations and decision provenance are implemented and offline-tested. Browser verification is pending due to a tool security-policy rejection; live provider availability remains unverified.
+
 - [x] Implement and test the shared `!rezz` parser: command boundaries, quotes, Unicode and configurable length limits.
 - [x] Implement and test queue scoring: decimal aging, tier bases, dynamic bulk penalties, donation-protection exclusions, admin priority and FIFO ties.
 - [x] Persist local operator queue requests/events and approvals; deduplicate events before resolving their target.
-- [ ] Add verified external identity/payment adapters to queue intake (local operator only today).
+- [ ] Complete community identity/payment adapters (local operator and Twitch sender intake exist).
 - [x] Expose queue and score breakdowns in the operator UI with a Queue Configuration page.
 - [x] Attach successfully built recipes to requests and require fresh playback approval.
 - [x] Schedule built clips without interruption, with per-request duration and pause/stop controls.
@@ -15,8 +17,10 @@ Active implementation checklist. Keep completed items backed by code/tests; upda
 
 ## AI and Arena control
 
-- [ ] Verify current Laya and Jev contracts, configuration, availability, latency and budgets; implement both behind one decision interface.
-- [ ] Replace keyword matching with grounded structured intent plans, including explicit unsupported intent.
+- [x] Verify HTTP contracts and implement configurable Laya/Jev adapters with session keys, timeouts, persistent request caps and no fallback.
+- [ ] Validate live model availability, quality, latency and monetary budgets; complete browser verification of model settings/studio flow.
+- [x] Add grounded one-source/one-effect recommendations with no-match/uncertain outcomes and archived provider provenance.
+- [ ] Expand recommendations into bounded multi-effect intent plans; evaluate accuracy on representative visual prompts.
 - [ ] Add discovered color/motion parameter controls and validate ranges before execution.
 - [ ] Define complete Light/Full policies independently of approval policy; add bounded auto/trusted approvals.
 - [ ] Prove MCP target routing before vendor mutations; preserve the shared validator for every control path.
@@ -80,3 +84,5 @@ UI refinement now provides distinct hash-routed views, local gallery status/sear
 Persistent local operator queue and event receipts now accompany the parser/scoring core. Queue and Configuration pages support approval/removal, manual next-request adjustments, tier starting values and aging/bulk settings. Built-clip attachment, playback approval, timed advancement and pause/stop/reconciliation are now implemented. Twitch local sender identity intake is implemented; live provider verification and community identity/payment linkage remain next. Laya/Jev contracts and grounded parameter planning remain outstanding. The queue can now play operator-built clips; no complete AI, live Twitch validation, full-composition generation, capture or community-login claims.
 
 Twitch checkpoint (2026-10-05): Configuration saves public app ID/channel/Arena target. Device authorization is memory-only and chat-read-only. Requests are held for recipe attachment/approval; badges never grant priority or protection. Forty automated tests pass; desktop/mobile configuration and required-field states checked. Live consent/chat remains untested until the operator configures their app. See [Twitch setup](docs/TWITCH.md).
+
+Model checkpoint (2026-10-05): Laya/Jev HTTP settings, one-call catalog recommendations, rejection/abstention, daily request caps and recipe provenance are implemented. Forty-eight tests pass. UI browser verification was blocked by the browser tool URL policy. No live model calls or Arena writes; color/motion controls remain next. See [provider setup](docs/MODELS.md).

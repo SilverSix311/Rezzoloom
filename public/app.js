@@ -54,7 +54,7 @@ function render() {
   }
 }
 async function boot() {
-  try { const session = await fetch('/api/session').then(r => { if (!r.ok) throw new Error('Cannot open local session.'); return r.json(); }); token = session.token; await refresh(); await refreshGallery(); await loadTwitch(true); }
+  try { const session = await fetch('/api/session').then(r => { if (!r.ok) throw new Error('Cannot open local session.'); return r.json(); }); token = session.token; await refresh(); await refreshGallery(); await loadTwitch(true); await loadModels(); }
   catch (error) { notice.textContent = `${error.message} Reload to retry.`; }
 }
 
@@ -62,6 +62,7 @@ async function boot() {
 const studioForm = document.querySelector('#studio-form');
 let studioTarget = null;
 let recipe = null;
+let modelSuggestion = null;
 let studioLoad = 0;
 function option(value, text) { const node = el('option', text); node.value = value; return node; }
 async function openStudio(item) {
@@ -83,30 +84,31 @@ async function openStudio(item) {
   location.hash = 'studio'; showView(true);
 }
 document.querySelector('#suggest').onclick = async () => {
-  const requestedTarget = studioTarget; const requestedLoad = studioLoad;
+  const requestedTarget = studioTarget; const requestedLoad = studioLoad; const requestedRevision = formRevision;
   const button = document.querySelector('#suggest'); button.disabled = true;
   try {
     const result = await api(`/api/instances/${studioTarget.id}/suggest`, 'POST', { prompt: studioForm.elements.prompt.value });
-    if (requestedTarget !== studioTarget || requestedLoad !== studioLoad) return;
+    if (requestedTarget !== studioTarget || requestedLoad !== studioLoad || requestedRevision !== formRevision) return;
     const holder = document.querySelector('#suggestions'); holder.replaceChildren(el('p', 'Catalog keyword matches — suggestions, not AI interpretation. Colors and motion are not configured by this matcher.'));
     for (const [key, label] of [['sources', 'Source'], ['effects', 'Effect']]) for (const item of result[key]) holder.append(action(`${label}: ${item.name}`, async () => {
       if (key === 'sources') document.querySelector('#source').value = item.id;
       else for (const opt of document.querySelector('#effects').options) if (opt.value === item.id) opt.selected = !opt.selected;
-      invalidateRecipe();
+      invalidateRecipe(); document.querySelector(key === 'sources' ? '#source' : '#effects').focus();
     }, 'quiet'));
     if (!result.sources.length && !result.effects.length) holder.append(el('p', 'No keyword matches. Choose from the live catalog below.'));
   } catch (error) { notice.textContent = error.message; } finally { button.disabled = false; }
 };
 let formRevision = 0;
-function invalidateRecipe() { formRevision++; recipe = null; document.querySelector('#review').replaceChildren(); }
-studioForm.oninput = invalidateRecipe;
+function invalidateRecipe() { formRevision++; recipe = null; modelSuggestion = null; document.querySelector('#suggestions').replaceChildren(); document.querySelector('#review').replaceChildren(); }
+studioForm.oninput = event => { const prior = modelSuggestion; invalidateRecipe(); if (event.target.id === 'slot') modelSuggestion = prior; };
 studioForm.onsubmit = async event => {
   event.preventDefault(); const button = studioForm.querySelector('[type=submit]'); button.disabled = true;
   const revision = formRevision; const target = studioTarget;
   try {
-    recipe = await api(`/api/instances/${studioTarget.id}/plan`, 'POST', { prompt: studioForm.elements.prompt.value, mode: studioForm.elements.mode.value, sourceId: document.querySelector('#source').value, clipId: Number(document.querySelector('#slot').value), effectIds: [...document.querySelector('#effects').selectedOptions].map(x => x.value) });
+    recipe = await api(`/api/instances/${studioTarget.id}/plan`, 'POST', { prompt: studioForm.elements.prompt.value, mode: studioForm.elements.mode.value, sourceId: document.querySelector('#source').value, clipId: Number(document.querySelector('#slot').value), effectIds: [...document.querySelector('#effects').selectedOptions].map(x => x.value), ...(modelSuggestion ? {recommendationId:modelSuggestion.id} : {}) });
     if (revision !== formRevision || target !== studioTarget) { await refreshGallery(); return; }
-    const review = document.querySelector('#review'); review.replaceChildren(el('h3', 'Review your recipe'), el('p', recipe.prompt), el('p', `${recipe.mode} mode · operator-selected recipe`), el('p', `${recipe.instance.name} → ${recipe.compositionName} → ${recipe.slot.label}`), el('p', [recipe.source.name, ...recipe.effects.map(x => x.name)].join(' → ')), el('p', 'Loads into this empty slot using default parameters. Playback stays under your control in Arena. Review expires after 10 minutes.'));
+    const review = document.querySelector('#review'); review.replaceChildren(el('h3', 'Review your recipe'), el('p', recipe.prompt), el('p', `${recipe.mode} mode · ${recipe.decision ? `${recipe.decision.provider} suggestion, reviewed by operator` : 'operator-selected recipe'}`), el('p', `${recipe.instance.name} → ${recipe.compositionName} → ${recipe.slot.label}`), el('p', [recipe.source.name, ...recipe.effects.map(x => x.name)].join(' → ')), el('p', 'Loads into this empty slot using default parameters. Playback stays under your control in Arena. Review expires after 10 minutes.'));
+    if (recipe.decision) review.append(el('p', `Decision model: ${recipe.decision.model}. Source/effect choices only; colors and motion still use Arena defaults.`, 'meta'));
     const approvedRecipe = recipe;
     review.append(action('Approve & build clip', async () => {
       const result = await api(`/api/instances/${approvedRecipe.instance.id}/execute`, 'POST', { planId: approvedRecipe.id, approved: true });
@@ -330,6 +332,60 @@ setInterval(() => {
   if (document.hidden || document.querySelector('#queue').hidden || queueBusy || !queueSnapshot || document.activeElement.closest('form, #queue-items, select')) return;
   loadQueue(false, true).catch(error => { notice.textContent = error.message; });
 }, 2000);
+const modelsForm = document.querySelector('#models-form');
+let modelsStatus = null;
+function renderModels(value, fill = false) {
+  modelsStatus = value;
+  if (fill) for (const [name,setting] of Object.entries(value.config)) {
+    const field = modelsForm.elements[name]; if (field.type === 'checkbox') field.checked = setting; else field.value = setting;
+  }
+  document.querySelector('#models-status').textContent = `${value.config.provider === 'disabled' ? 'AI suggestions disabled' : `Selected: ${value.config.provider}`} · ${value.usage.attempts}/${value.config.dailyLimit} attempts today (UTC) · ${value.keyPresent ? 'Session key available' : 'No session key'}`;
+  modelsForm.querySelector('[type=submit]').disabled = false;
+  document.querySelector('#models-forget').disabled = !value.keyPresent;
+}
+async function loadModels() { renderModels(await api('/api/models'),true); }
+function modelSettings() {
+  const fields = Object.fromEntries(new FormData(modelsForm));
+  return {provider:fields.provider,layaEndpoint:fields.layaEndpoint,layaModel:fields.layaModel,jevModel:fields.jevModel,cloudEnabled:modelsForm.elements.cloudEnabled.checked,threshold:Number(fields.threshold),dailyLimit:Number(fields.dailyLimit),timeoutSeconds:Number(fields.timeoutSeconds)};
+}
+async function saveModels(payload) {
+  for (const field of modelsForm.elements) field.disabled = true;
+  document.querySelector('#models-error').textContent = '';
+  try { renderModels(await api('/api/models','POST',payload),true); modelsForm.elements.apiKey.value = ''; invalidateRecipe(); }
+  catch(error) { document.querySelector('#models-error').textContent = error.message; }
+  finally { for (const field of modelsForm.elements) field.disabled = false; if (modelsStatus) renderModels(modelsStatus); }
+}
+modelsForm.onsubmit = event => { event.preventDefault(); const key = modelsForm.elements.apiKey.value; saveModels({config:modelSettings(),...(key ? {apiKey:key} : {})}); };
+document.querySelector('#models-forget').onclick = () => saveModels({config:modelsStatus.config,forgetKey:true});
+document.querySelector('#recommend').onclick = async () => {
+  if (!studioTarget) return;
+  const target = studioTarget, load = studioLoad, revision = formRevision;
+  const button = document.querySelector('#recommend'); button.disabled = true; button.textContent = 'Asking model…';
+  notice.textContent = '';
+  try {
+    const result = await api(`/api/instances/${target.id}/recommend`,'POST',{prompt:studioForm.elements.prompt.value,mode:studioForm.elements.mode.value});
+    if (target !== studioTarget || load !== studioLoad || revision !== formRevision) return;
+    notice.textContent = 'Model recommendation ready. Review the choices below the prompt.';
+    const holder = document.querySelector('#suggestions');
+    holder.replaceChildren(el('h3','Model suggestion'),el('p',`${result.provider} · ${result.model} · ${(result.latencyMs/1000).toFixed(1)}s`,'meta'));
+    for (const kind of ['source','effect']) {
+      const choice = result.choices[kind];
+      holder.append(el('p',`${kind === 'source' ? 'Source' : 'Effect'}: ${choice.selected?.name ?? (choice.reason === 'low_confidence' ? 'Uncertain — choose manually' : 'No match')} · reported confidence ${(choice.confidence*100).toFixed(0)}%`));
+    }
+    for (const limitation of result.limitations) holder.append(el('p',limitation,'meta'));
+    if (result.choices.source.selected) holder.append(action('Use suggestion',async () => {
+      if (revision !== formRevision || target !== studioTarget) { holder.replaceChildren(); return; }
+      const sourceId = result.choices.source.selected.id, effectId = result.choices.effect.selected?.id;
+      if (![...document.querySelector('#source').options].some(x => x.value === sourceId) || (effectId && ![...document.querySelector('#effects').options].some(x => x.value === effectId))) throw new Error('Catalog changed. Reload it and ask again.');
+      document.querySelector('#source').value = sourceId;
+      for (const opt of document.querySelector('#effects').options) opt.selected = opt.value === effectId;
+      invalidateRecipe(); modelSuggestion = result; document.querySelector('#slot').focus();
+      notice.textContent = 'Suggestion selected. Choose an empty slot, then review the recipe.';
+      holder.append(el('p','Suggestion selected. Choose an empty slot and review your recipe. Colors and motion remain at Arena defaults.'));
+    },'primary'));
+  } catch(error) { notice.textContent = error.message; }
+  finally { button.disabled = false; button.textContent = 'Ask model'; if (modelsStatus) api('/api/models').then(value => renderModels(value)).catch(()=>{}); }
+};
 const twitchForm = document.querySelector('#twitch-form');
 let twitchStatus = null, twitchBusy = false;
 function syncTwitchTargets() {

@@ -7,9 +7,9 @@ import { createServer, request as httpRequest } from 'node:http';
 import { createApp } from '../src/server.mjs';
 import { openStore } from '../src/store.mjs';
 import { inspectArena, normalizeEndpoint, readJson } from '../src/arena.mjs';
-async function fixture(t, probe) {
+async function fixture(t, probe, options = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'rezzo-test-'));
-  const app = await createApp({ dataDir: dir, probe });
+  const app = await createApp({ ...options, dataDir: dir, probe });
   await new Promise(resolve => app.listen(0, '127.0.0.1', resolve));
   t.after(async () => { await new Promise(resolve => { app.close(resolve); app.closeAllConnections(); }); await rm(dir, { recursive: true, force: true }); });
   const base = `http://127.0.0.1:${app.address().port}`;
@@ -139,4 +139,37 @@ test('Twitch configuration API requires local auth, rejects secrets and has no c
   const status = await request('/api/twitch').then(r=>r.json()); assert.deepEqual(status.config,config); assert.equal(status.identity,null);
   const persisted = await import('node:fs/promises').then(fs=>fs.readFile(join(dir,'twitch.json'),'utf8'));
   assert.doesNotMatch(persisted,/secret|token/i);
+});
+
+test('model HTTP recommendations keep cloud opt-in, real catalog IDs, provenance and build approval boundaries',async t=>{
+  const {MODEL_DEFAULTS}=await import('../src/models.mjs');
+  let calls=0,writes=0;
+  const catalog={compositionKey:'test-comp',compositionName:'Test',sources:[{id:'source-id',name:'Test source',description:'test'}],effects:[],slots:[{id:1,label:'empty slot'}]};
+  const {request,base}=await fixture(t,undefined,{studioOptions:{discover:async()=>catalog,write:async()=>{writes++;}},modelOptions:{request:async({body})=>{calls++;return {model:'english',answers:{source:{type:'choice',choice:'source_0',confidence:0.9,probabilities:{source_0:0.9,none:0.1}},effect:{type:'choice',choice:'none',confidence:1,probabilities:{none:1}}},usage:{input_tokens:1,output_tokens:1}};}}});
+  assert.equal((await fetch(`${base}/api/models`)).status,401);
+  const instance=await request('/api/instances','POST',{name:'A',endpoint:'http://localhost:9001'}).then(r=>r.json());
+  const path=`/api/instances/${instance.id}`;
+  assert.equal((await request('/api/models','POST',{config:{...MODEL_DEFAULTS,provider:'jev'}})).status,400);
+  assert.equal((await request('/api/models','POST',{config:{...MODEL_DEFAULTS,provider:'laya'}})).status,200);
+  const prompt={prompt:'Test lines',mode:'light'};
+  const suggestion=await request(`${path}/recommend`,'POST',prompt).then(r=>r.json());
+  assert.equal(calls,1);assert.equal(writes,0);assert.equal(suggestion.choices.source.selected.id,'source-id');
+  const input={...prompt,sourceId:'source-id',clipId:1,effectIds:[],recommendationId:suggestion.id};
+  const recipe=await request(`${path}/plan`,'POST',input).then(r=>r.json()); assert.equal(recipe.decision.decisionId,suggestion.id);assert.equal(recipe.planner,'model-catalog-v1');
+  assert.equal((await request(`${path}/execute`,'POST',{planId:recipe.id,approved:false})).status,400);assert.equal(writes,0);
+  assert.equal((await request(`${path}/plan`,'POST',{...input,recommendationId:'forged'})).status,409);
+  assert.equal((await request(`${path}/recommend`,'POST',{...prompt,approved:true})).status,400);assert.equal(calls,1);
+});
+
+test('slow model inference releases the Arena operation lock after catalog discovery',async t=>{
+  const {MODEL_DEFAULTS}=await import('../src/models.mjs'); let release;
+  const catalog={compositionKey:'test',sources:[{id:'s',name:'Source'}],effects:[],slots:[]};
+  const {request}=await fixture(t,undefined,{studioOptions:{discover:async()=>catalog},modelOptions:{request:()=>new Promise(resolve=>{release=resolve;})}});
+  await request('/api/models','POST',{config:{...MODEL_DEFAULTS,provider:'laya'}});
+  const instance=await request('/api/instances','POST',{name:'A',endpoint:'http://localhost:9001'}).then(r=>r.json());
+  const pending=request(`/api/instances/${instance.id}/recommend`,'POST',{prompt:'test',mode:'light'});
+  const deadline=Date.now()+2000;while(!release&&Date.now()<deadline) await new Promise(resolve=>setTimeout(resolve,5));
+  assert.equal(typeof release,'function');
+  try { assert.equal((await request(`/api/instances/${instance.id}/catalog`,'POST')).status,200); }
+  finally { release({}); await pending; }
 });
